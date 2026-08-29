@@ -4,20 +4,56 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"sync"
+	"os"
+	"os/signal"
+	"syscall"
 
+	"github.com/anuraghagawane/luma/internal/config"
+	"github.com/anuraghagawane/luma/internal/infra/kafka"
+	"github.com/anuraghagawane/luma/internal/repository/elastic"
 	"github.com/twmb/franz-go/pkg/kadm"
 	"github.com/twmb/franz-go/pkg/kgo"
 )
 
 func main() {
-	topicName := "foo"
-	seeds := []string{"localhost:9092"}
+	cfg, err := config.LoadEnv()
+	if err != nil {
+		log.Fatalf("Error while parsing env: %v", err)
+	}
+	elasticAddresses := []string{cfg.ElasticBroker}
+	elasticIndex := "logs"
+	logRepo, err := elastic.NewLogRepo(elasticAddresses, elasticIndex)
+	if err != nil {
+		log.Fatalf("Failed to initiate Log repository %v", err)
+	}
 
+	seeds := []string{cfg.KafkaBroker}
+	topicName := "log"
+	createTopic(topicName, seeds)
+	consumer, err := kafka.NewFranzConsumer(seeds, "log-consumer", topicName, logRepo)
+	if err != nil {
+		log.Fatalf("Init error: %v", err)
+	}
+
+	defer consumer.Close()
+
+	go func() {
+		err := consumer.Start()
+		if err != nil {
+			log.Printf("error while starting consumer: %v", err)
+		}
+	}()
+
+	// Graceful shutdown handling
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	<-sigChan
+	log.Println("Shutting down service...")
+}
+
+func createTopic(topicName string, seeds []string) {
 	cl, err := kgo.NewClient(
 		kgo.SeedBrokers(seeds...),
-		kgo.ConsumerGroup("my-group-identifier"),
-		kgo.ConsumeTopics("foo"),
 	)
 	if err != nil {
 		panic(err)
@@ -27,53 +63,6 @@ func main() {
 
 	defer cl.Close()
 
-	createTopic(cl, topicName)
-
-	ctx := context.Background()
-
-	var wg sync.WaitGroup
-
-	wg.Add(1)
-	record := &kgo.Record{Topic: topicName, Value: []byte("bar")}
-	cl.Produce(ctx, record, func(_ *kgo.Record, err error) {
-		defer wg.Done()
-		if err != nil {
-			fmt.Printf("record had a produce error: %v\n", err)
-		}
-	})
-	wg.Wait()
-
-	if err := cl.ProduceSync(ctx, record).FirstErr(); err != nil {
-		fmt.Printf("record had a produce error while synchronously producing: %v\n", err)
-	}
-
-	for {
-		fetches := cl.PollFetches(ctx)
-
-		if errs := fetches.Errors(); len(errs) > 0 {
-			panic(fmt.Sprint(errs))
-		}
-
-		iter := fetches.RecordIter()
-
-		for !iter.Done() {
-			record := iter.Next()
-			fmt.Println(string(record.Value), "from an iterator!")
-		}
-
-		fetches.EachPartition(func(p kgo.FetchTopicPartition) {
-			for _, record := range p.Records {
-				fmt.Println(string(record.Value), "from range inside a callback!")
-			}
-
-			p.EachRecord(func(record *kgo.Record) {
-				fmt.Println(string(record.Value), "from a second callback!")
-			})
-		})
-	}
-}
-
-func createTopic(cl *kgo.Client, topicName string) {
 	ctx := context.Background()
 	adminClient := kadm.NewClient(cl)
 	var partitions int32 = 3

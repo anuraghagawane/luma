@@ -35,7 +35,7 @@ services:
 
   # --- ELASTICSEARCH (Official Elastic Image) ---
   elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.5.2
     container_name: elasticsearch
     ports:
       - "9200:9200"
@@ -43,6 +43,7 @@ services:
       - discovery.type=single-node
       - xpack.security.enabled=false
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.security.http.ssl.enabled=false
     volumes:
       - es_data:/usr/share/elasticsearch/data
     networks:
@@ -50,7 +51,7 @@ services:
 
   # --- KIBANA (Official Elastic Image) ---
   kibana:
-    image: docker.elastic.co/kibana/kibana:8.12.0
+    image: docker.elastic.co/kibana/kibana:9.5.2
     container_name: kibana
     ports:
       - "5601:5601"
