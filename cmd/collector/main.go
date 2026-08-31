@@ -28,5 +28,5 @@ func main() {
 
 	http.HandleFunc("/v1/log", logHandler.HandleLog)
 	http.HandleFunc("/v1/bulklog", logHandler.HandleBulkLog)
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Fatal(http.ListenAndServe(":"+cfg.CollectorPort, nil))
 }

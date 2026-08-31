@@ -56,7 +56,7 @@ func createTopic(topicName string, seeds []string) {
 		kgo.SeedBrokers(seeds...),
 	)
 	if err != nil {
-		panic(err)
+		log.Fatalf("No able to create topic: %v", err)
 	}
 
 	fmt.Println("Client is created")

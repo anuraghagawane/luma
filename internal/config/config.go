@@ -11,6 +11,7 @@ import (
 type Config struct {
 	ElasticBroker string
 	KafkaBroker   string
+	CollectorPort string
 }
 
 func LoadEnv() (*Config, error) {
@@ -21,5 +22,6 @@ func LoadEnv() (*Config, error) {
 	return &Config{
 		ElasticBroker: os.Getenv("ELASTIC_BROKER"),
 		KafkaBroker:   os.Getenv("KAFKA_BROKER"),
+		CollectorPort: os.Getenv("COLLECTOR_PORT"),
 	}, nil
 }

@@ -2,7 +2,6 @@
 package api
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -24,22 +23,26 @@ func (h *LogHandler) HandleLog(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPost:
 		var log domain.Log
-		data, _ := io.ReadAll(r.Body)
-		err := json.Unmarshal(data, &log)
+		data, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "Failed to read request body", http.StatusBadRequest)
+			return
+		}
+
+		err = json.Unmarshal(data, &log)
 		if err != nil {
 			http.Error(w, "Error: Invalid input", http.StatusBadRequest)
 			return
 		}
 
-		ctx := context.Background()
-
-		err = h.producer.Publish(ctx, "log", []byte(log.EventID), data)
+		err = h.producer.Publish(r.Context(), "log", []byte(log.EventID), data)
 		if err != nil {
 			fmt.Printf("Error while publishing log: %v", err)
 			http.Error(w, "Error: failed", http.StatusInternalServerError)
 		}
 		fmt.Printf("%+v\n", log)
-		_, _ = fmt.Fprintf(w, "received data")
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"status": "success"})
 	default:
 		http.Error(w, "method not supported", http.StatusMethodNotAllowed)
 	}
@@ -50,24 +53,27 @@ func (h *LogHandler) HandleBulkLog(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPost:
 		var logs []domain.Log
-		data, _ := io.ReadAll(r.Body)
-		err := json.Unmarshal(data, &logs)
+		data, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "Failed to read request body", http.StatusBadRequest)
+			return
+		}
+		err = json.Unmarshal(data, &logs)
 		if err != nil {
 			http.Error(w, "Error: Invalid input", http.StatusBadRequest)
 			return
 		}
 
-		ctx := context.Background()
 		for _, log := range logs {
 			data, _ := json.Marshal(log)
-			err = h.producer.Publish(ctx, "log", []byte(log.EventID), data)
+			err = h.producer.Publish(r.Context(), "log", []byte(log.EventID), data)
 			if err != nil {
 				http.Error(w, "Error: failed", http.StatusInternalServerError)
+				return
 			}
-
 		}
-		fmt.Printf("%+v\n", logs)
-		_, _ = fmt.Fprintf(w, "received data")
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"status": "success", "count": len(logs)})
 	default:
 		http.Error(w, "method not supported", http.StatusMethodNotAllowed)
 	}
