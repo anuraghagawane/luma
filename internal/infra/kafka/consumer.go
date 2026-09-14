@@ -6,17 +6,21 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
+	"time"
 
 	"github.com/anuraghagawane/luma/internal/domain"
 	"github.com/twmb/franz-go/pkg/kgo"
 )
 
 type FranzConsumer struct {
-	client  *kgo.Client
-	topic   string
-	ctx     context.Context
-	cancel  context.CancelFunc
-	logRepo domain.LogRepository
+	client      *kgo.Client
+	topic       string
+	ctx         context.Context
+	cancel      context.CancelFunc
+	logRepo     domain.LogRepository
+	dlqTopic    string
+	dlqProducer FranzProducer
 }
 
 func NewFranzConsumer(brokers []string, groupID string, topic string, logRepo domain.LogRepository) (*FranzConsumer, error) {
@@ -25,18 +29,28 @@ func NewFranzConsumer(brokers []string, groupID string, topic string, logRepo do
 		kgo.SeedBrokers(brokers...),
 		kgo.ConsumerGroup(groupID),
 		kgo.ConsumeTopics(topic),
+		kgo.DisableAutoCommit(),
 	)
 	if err != nil {
 		cancel()
 		return nil, fmt.Errorf("failed to create kafka client %w", err)
 	}
 
+	dlqProducer, err := NewFranzProducer(brokers)
+	if err != nil {
+		cancel()
+		cl.Close()
+		return nil, fmt.Errorf("failed to create DLQ producer: %w", err)
+	}
+
 	return &FranzConsumer{
-		client:  cl,
-		topic:   topic,
-		ctx:     ctx,
-		cancel:  cancel,
-		logRepo: logRepo,
+		client:      cl,
+		topic:       topic,
+		ctx:         ctx,
+		cancel:      cancel,
+		logRepo:     logRepo,
+		dlqTopic:    "log-dlq",
+		dlqProducer: *dlqProducer,
 	}, nil
 }
 
@@ -67,19 +81,91 @@ func (fc *FranzConsumer) Start() error {
 					continue
 				}
 
-				if err := fc.logRepo.Index(fc.ctx, logEntry.EventID, logEntry); err != nil {
-					log.Printf("Failed to index log ID %s: %v", logEntry.EventID, err)
-					continue
+				err := fc.logRepo.Index(fc.ctx, logEntry.EventID, logEntry)
+
+				for attempt := 0; attempt < MAX_RETRIES; attempt++ {
+					if err == nil {
+						break
+					}
+
+					if !isRetryable(err) {
+						break
+					}
+
+					if attempt < MAX_RETRIES-1 {
+						backoff := calculateBackoff(attempt)
+						log.Printf("Retrying after %v (attempt %d/%d)", backoff, attempt+1, MAX_RETRIES)
+						time.Sleep(backoff)
+
+						err = fc.logRepo.Index(fc.ctx, logEntry.EventID, logEntry)
+					}
 				}
 
-				log.Println("Indexed", logEntry)
+				if err == nil {
+					log.Printf("Successfully indexed %s", logEntry.EventID)
+					fc.commitOffset(record)
+				} else if isRetryable(err) {
+					log.Printf("Max retries exhausted for %s, sending to DLQ", logEntry.EventID)
+					dlqErr := fc.sendToDLQ(logEntry, err, "retryable", MAX_RETRIES)
+					if dlqErr == nil {
+						fc.commitOffset(record)
+					}
+				} else {
+					log.Printf("Permanent error for %s, sending to DLQ", logEntry.EventID)
+					dlqErr := fc.sendToDLQ(logEntry, err, "permanent", MAX_RETRIES)
+					if dlqErr == nil {
+						fc.commitOffset(record)
+					}
+				}
 			}
 		}
 	}
 }
 
+func calculateBackoff(attempt int) time.Duration {
+	backoff := time.Duration(math.Pow(2, float64(attempt))) * INITIAL_BACKOFF_MS * time.Millisecond
+
+	if backoff > (MAX_BACKOFF_MS*time.Millisecond) || backoff < 0 {
+		return MAX_BACKOFF_MS * time.Millisecond
+	}
+
+	return backoff
+}
+
+func (fc *FranzConsumer) commitOffset(record *kgo.Record) {
+	offsets := make(map[string]map[int32]kgo.EpochOffset)
+	offsets[record.Topic] = make(map[int32]kgo.EpochOffset)
+	offsets[record.Topic][record.Partition] = kgo.EpochOffset{
+		Epoch:  record.LeaderEpoch,
+		Offset: record.Offset + 1,
+	}
+	fc.client.CommitOffsetsSync(fc.ctx, offsets, nil)
+	log.Printf("Committed offset %d for topic %s partition %d",
+		record.Offset+1, record.Topic, record.Partition)
+}
+
+func (fc *FranzConsumer) sendToDLQ(logEntry domain.Log, failureErr error, errorType string, attempts int) error {
+	dlqMsg := NewDLQMessage(logEntry, failureErr, errorType, attempts)
+
+	msgData, err := dlqMsg.ToJSON()
+	if err != nil {
+		log.Printf("Failed to marshal DLQ message: %v", err)
+		return err
+	}
+
+	err = fc.dlqProducer.Publish(fc.ctx, fc.dlqTopic, []byte(logEntry.EventID), msgData)
+	if err != nil {
+		log.Printf("Failed to send to DLQ: %v", err)
+		return err
+	}
+
+	log.Printf("Sent to DLQ: %s (error: %s)", logEntry.EventID, failureErr)
+	return nil
+}
+
 func (fc *FranzConsumer) Close() error {
 	fc.cancel()
 	fc.client.Close()
+	fc.dlqProducer.Close()
 	return nil
 }

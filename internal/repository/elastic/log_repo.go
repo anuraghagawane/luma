@@ -4,14 +4,17 @@ package elastic
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 
 	"github.com/anuraghagawane/luma/internal/domain"
 	"github.com/elastic/elastic-transport-go/v8/elastictransport"
 	"github.com/elastic/go-elasticsearch/v9"
 	"github.com/elastic/go-elasticsearch/v9/typedapi/esdsl"
+	"github.com/elastic/go-elasticsearch/v9/typedapi/types"
 )
 
 type LogRepo struct {
@@ -53,5 +56,43 @@ func NewLogRepo(addresses []string, index string) (*LogRepo, error) {
 
 func (r *LogRepo) Index(ctx context.Context, id string, document domain.Log) error {
 	_, err := r.client.Index(r.index).Id(id).Document(document).Do(ctx)
-	return err
+	if err != nil {
+		return convertESErrorToDomain(err)
+	}
+	return nil
+}
+
+func convertESErrorToDomain(err error) error {
+	var apiErr *types.ElasticsearchError
+	if errors.As(err, &apiErr) {
+		if apiErr.Status >= 500 || apiErr.Status == 429 {
+			return &domain.LogError{
+				Type:    domain.ErrorTypeRetryable,
+				Message: err.Error(),
+				Code:    apiErr.Status,
+			}
+		}
+
+		if apiErr.Status >= 400 && apiErr.Status < 500 {
+			return &domain.LogError{
+				Type:    domain.ErrorTypePermanent,
+				Message: err.Error(),
+				Code:    apiErr.Status,
+			}
+		}
+	}
+
+	var netErr net.Error
+
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return &domain.LogError{
+			Type:    domain.ErrorTypeRetryable,
+			Message: err.Error(),
+		}
+	}
+
+	return &domain.LogError{
+		Type:    domain.ErrorTypeRetryable,
+		Message: err.Error(),
+	}
 }
