@@ -20,7 +20,7 @@ type FranzConsumer struct {
 	cancel      context.CancelFunc
 	logRepo     domain.LogRepository
 	dlqTopic    string
-	dlqProducer FranzProducer
+	dlqProducer domain.EventProducer
 }
 
 func NewFranzConsumer(brokers []string, groupID string, topic string, logRepo domain.LogRepository) (*FranzConsumer, error) {
@@ -50,7 +50,7 @@ func NewFranzConsumer(brokers []string, groupID string, topic string, logRepo do
 		cancel:      cancel,
 		logRepo:     logRepo,
 		dlqTopic:    "log-dlq",
-		dlqProducer: *dlqProducer,
+		dlqProducer: dlqProducer,
 	}, nil
 }
 
@@ -81,43 +81,53 @@ func (fc *FranzConsumer) Start() error {
 					continue
 				}
 
-				err := fc.logRepo.Index(fc.ctx, logEntry.EventID, logEntry)
-
-				for attempt := 0; attempt < MAX_RETRIES; attempt++ {
-					if err == nil {
-						break
-					}
-
-					if !isRetryable(err) {
-						break
-					}
-
-					if attempt < MAX_RETRIES-1 {
-						backoff := calculateBackoff(attempt)
-						log.Printf("Retrying after %v (attempt %d/%d)", backoff, attempt+1, MAX_RETRIES)
-						time.Sleep(backoff)
-
-						err = fc.logRepo.Index(fc.ctx, logEntry.EventID, logEntry)
-					}
-				}
-
-				if err == nil {
-					log.Printf("Successfully indexed %s", logEntry.EventID)
-					fc.commitOffset(record)
-				} else if isRetryable(err) {
-					log.Printf("Max retries exhausted for %s, sending to DLQ", logEntry.EventID)
-					dlqErr := fc.sendToDLQ(logEntry, err, "retryable", MAX_RETRIES)
-					if dlqErr == nil {
-						fc.commitOffset(record)
-					}
-				} else {
-					log.Printf("Permanent error for %s, sending to DLQ", logEntry.EventID)
-					dlqErr := fc.sendToDLQ(logEntry, err, "permanent", MAX_RETRIES)
-					if dlqErr == nil {
-						fc.commitOffset(record)
-					}
-				}
+				fc.processMessage(record, logEntry, fc.commitOffset, fc.sendToDLQ, calculateBackoff)
 			}
+		}
+	}
+}
+
+type (
+	offsetCommiter func(record *kgo.Record)
+	dlqSender      func(logEntry domain.Log, failureErr error, errorType string, attempts int) error
+	backoffFunc    func(int) time.Duration
+)
+
+func (fc *FranzConsumer) processMessage(record *kgo.Record, logEntry domain.Log, commitFn offsetCommiter, sendDLQFn dlqSender, backoffFn backoffFunc) {
+	err := fc.logRepo.Index(fc.ctx, logEntry.EventID, logEntry)
+
+	for attempt := range MAX_RETRIES {
+		if err == nil {
+			break
+		}
+
+		if !isRetryable(err) {
+			break
+		}
+
+		if attempt < MAX_RETRIES-1 {
+			backoff := backoffFn(attempt)
+			log.Printf("Retrying after %v (attempt %d/%d)", backoff, attempt+1, MAX_RETRIES)
+			time.Sleep(backoff)
+
+			err = fc.logRepo.Index(fc.ctx, logEntry.EventID, logEntry)
+		}
+	}
+
+	if err == nil {
+		log.Printf("Successfully indexed %s", logEntry.EventID)
+		commitFn(record)
+	} else if isRetryable(err) {
+		log.Printf("Max retries exhausted for %s, sending to DLQ", logEntry.EventID)
+		dlqErr := sendDLQFn(logEntry, err, "retryable", MAX_RETRIES)
+		if dlqErr == nil {
+			commitFn(record)
+		}
+	} else {
+		log.Printf("Permanent error for %s, sending to DLQ", logEntry.EventID)
+		dlqErr := sendDLQFn(logEntry, err, "permanent", MAX_RETRIES)
+		if dlqErr == nil {
+			commitFn(record)
 		}
 	}
 }
