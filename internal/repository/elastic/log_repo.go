@@ -4,11 +4,12 @@ package elastic
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
 	"net"
 	"net/http"
+	"strconv"
 
 	"github.com/anuraghagawane/luma/internal/domain"
 	"github.com/elastic/elastic-transport-go/v8/elastictransport"
@@ -23,7 +24,6 @@ type LogRepo struct {
 }
 
 func NewLogRepo(addresses []string, index string) (*LogRepo, error) {
-	fmt.Println(addresses, index)
 	client, err := elasticsearch.NewTyped(
 		elasticsearch.WithAddresses(addresses...),
 		elasticsearch.WithTransportOptions(
@@ -45,7 +45,7 @@ func NewLogRepo(addresses []string, index string) (*LogRepo, error) {
 	}
 	if !exists {
 		_, err = client.Indices.Create(index).Mappings(
-			esdsl.NewTypeMapping().AddProperty("eventid", esdsl.NewKeywordProperty()).AddProperty("tenant", esdsl.NewKeywordProperty()).AddProperty("host", esdsl.NewKeywordProperty()).AddProperty("message", esdsl.NewTextProperty()).AddProperty("timestamp", esdsl.NewDateProperty()).AddProperty("loglevel", esdsl.NewKeywordProperty())).Do(context.Background())
+			esdsl.NewTypeMapping().AddProperty("eventid", esdsl.NewKeywordProperty()).AddProperty("tenant", esdsl.NewKeywordProperty()).AddProperty("service", esdsl.NewKeywordProperty()).AddProperty("host", esdsl.NewKeywordProperty()).AddProperty("message", esdsl.NewTextProperty()).AddProperty("timestamp", esdsl.NewDateProperty()).AddProperty("loglevel", esdsl.NewKeywordProperty())).Do(context.Background())
 		if err != nil {
 			log.Fatal("Failed to create index", err)
 		}
@@ -95,4 +95,45 @@ func convertESErrorToDomain(err error) error {
 		Type:    domain.ErrorTypeRetryable,
 		Message: err.Error(),
 	}
+}
+
+func (r *LogRepo) Query(ctx context.Context, logQuery domain.LogQuery) ([]domain.Log, error) {
+	filters := []types.QueryVariant{
+		esdsl.NewTermQuery("tenant", esdsl.NewFieldValue().String(logQuery.Tenant)),
+		esdsl.NewDateRangeQuery("timestamp").
+			Gte(strconv.FormatInt(logQuery.From, 10)).
+			Lte(strconv.FormatInt(logQuery.To, 10)),
+	}
+
+	if logQuery.LogLevel != "" {
+		filters = append(filters, esdsl.NewTermQuery("loglevel", esdsl.NewFieldValue().String(string(logQuery.LogLevel))))
+	}
+
+	if logQuery.Service != "" {
+		filters = append(filters, esdsl.NewTermQuery("service", esdsl.NewFieldValue().String(logQuery.Service)))
+	}
+
+	if logQuery.Keyword != "" {
+		filters = append(filters, esdsl.NewMatchQuery("message", logQuery.Keyword))
+	}
+
+	res, err := r.client.Search().Index(r.index).Query(esdsl.NewBoolQuery().Filter(filters...)).Do(ctx)
+	if err != nil {
+		log.Println("Failed to search", err)
+		return nil, err
+	}
+
+	foundLogs := []domain.Log{}
+
+	for _, rawLog := range res.Hits.Hits {
+		var formattedLog domain.Log
+		err := json.Unmarshal(rawLog.Source_, &formattedLog)
+		if err != nil {
+			log.Printf("Failed to unmarshal es response: %v", err)
+			return nil, err
+		}
+		foundLogs = append(foundLogs, formattedLog)
+	}
+
+	return foundLogs, nil
 }

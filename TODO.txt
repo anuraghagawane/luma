@@ -1,0 +1,8 @@
+LUMA TODOs
+
+Query API
+=========
+[ ] Pagination: define cursor and limit semantics, enforce a maximum page size, and apply pagination in Elasticsearch queries.
+[ ] Input validation: validate time ranges, pagination values, log levels, and required query fields at the API boundary.
+[ ] Authentication: authenticate requests and derive the tenant ID from trusted token claims instead of request input or hardcoded values.
+[ ] Tests: add handler tests for validation, authentication, tenant isolation, query failures, and successful responses; add repository/integration coverage for Elasticsearch queries.

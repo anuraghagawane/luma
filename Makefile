@@ -1,6 +1,6 @@
 .PHONY: help
 .PHONY: up down restart ps stop hard-restart
-.PHONY: collector worker
+.PHONY: collector worker query
 .PHONY: test fmt
 
 help:
@@ -54,6 +54,8 @@ collector:
 worker:
 	go run ./cmd/worker/main.go
 
+query:
+	go run ./cmd/query/main.go
 
 #Code Quality
 test:
