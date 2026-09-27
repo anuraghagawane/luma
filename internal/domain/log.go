@@ -41,10 +41,14 @@ type LogQuery struct {
 	Service  string   `json:"service"`
 	LogLevel LogLevel `json:"log_level"`
 	Keyword  string   `json:"keyword"`
-	Cursor   int64    `json:"cursor"`
+	Cursor   string   `json:"cursor"`
 	Limit    int64    `json:"limit"`
 }
 
+type QueryResponse struct {
+	Cursor *string `json:"cursor"`
+	Logs   []Log   `json:"logs"`
+}
 type LogProducer interface {
 	Publish(ctx context.Context, topic string, key []byte, value []byte) error
 }
