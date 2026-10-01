@@ -4,6 +4,7 @@ Query API
 =========
 [X] Pagination: define cursor and limit semantics, enforce a maximum page size, and apply pagination in Elasticsearch queries.
 [X] Input validation: validate time ranges, pagination values, log levels, and required query fields at the API boundary.
+[ ] User management: setup postgres, decide schemas, build user management api layer
 [ ] Authentication: authenticate requests and derive the tenant ID from trusted token claims instead of request input or hardcoded values.
 [ ] Tests: add handler tests for validation, authentication, tenant isolation, query failures, and successful responses; add repository/integration coverage for Elasticsearch queries.
 [ ] Timeout: set timeout for each query.
