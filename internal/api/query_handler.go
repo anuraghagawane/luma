@@ -36,6 +36,11 @@ func (h *QueryHandler) HandleLogQuery(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		if err := logQuery.ValidateAndDefault(); err != nil {
+			http.Error(w, "Error: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+
 		logs, err := h.logRepo.Query(r.Context(), logQuery)
 		if err != nil {
 			log.Printf("Failed to Query: %v", err)

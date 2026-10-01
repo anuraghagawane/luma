@@ -4,6 +4,7 @@ package domain
 import (
 	"context"
 	"fmt"
+	"time"
 )
 
 type LogLevel string
@@ -43,6 +44,34 @@ type LogQuery struct {
 	Keyword  string   `json:"keyword"`
 	Cursor   string   `json:"cursor"`
 	Limit    int64    `json:"limit"`
+}
+
+func (q *LogQuery) ValidateAndDefault() error {
+	if q.Tenant == "" {
+		return fmt.Errorf("invalid tenant")
+	}
+
+	if q.Limit > 1000 || q.Limit < 0 {
+		return fmt.Errorf("invalid input max limit is 1000")
+	}
+
+	if q.To <= q.From {
+		return fmt.Errorf("invalid input timestamp")
+	}
+
+	if q.From < time.Now().AddDate(0, 0, -30).Unix() {
+		return fmt.Errorf("invalid input, can query only recent 30 days data")
+	}
+
+	if q.To > time.Now().Unix() {
+		return fmt.Errorf("invalid input cannot query future data")
+	}
+
+	if q.Limit == 0 {
+		q.Limit = 1000
+	}
+
+	return nil
 }
 
 type QueryResponse struct {
