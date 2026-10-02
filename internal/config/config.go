@@ -13,6 +13,7 @@ type Config struct {
 	KafkaBroker   string
 	CollectorPort string
 	QueryPort     string
+	PostgresDBUrl string
 }
 
 func LoadEnv() (*Config, error) {
@@ -25,5 +26,6 @@ func LoadEnv() (*Config, error) {
 		KafkaBroker:   os.Getenv("KAFKA_BROKER"),
 		CollectorPort: os.Getenv("COLLECTOR_PORT"),
 		QueryPort:     os.Getenv("QUERY_PORT"),
+		PostgresDBUrl: os.Getenv("POSTGRES_DB_URL"),
 	}, nil
 }

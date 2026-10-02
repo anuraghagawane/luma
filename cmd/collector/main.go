@@ -5,7 +5,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/anuraghagawane/luma/internal/api"
+	"github.com/anuraghagawane/luma/internal/api/collector"
 	"github.com/anuraghagawane/luma/internal/config"
 	"github.com/anuraghagawane/luma/internal/infra/kafka"
 )
@@ -24,7 +24,7 @@ func main() {
 	}
 	defer producer.Close()
 
-	logHandler := api.NewLogHandler(producer)
+	logHandler := collector.NewHandler(producer)
 
 	http.HandleFunc("/v1/log", logHandler.HandleLog)
 	http.HandleFunc("/v1/bulklog", logHandler.HandleBulkLog)

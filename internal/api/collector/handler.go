@@ -1,5 +1,5 @@
 // Package api defines the handler for all apis
-package api
+package collector
 
 import (
 	"encoding/json"
@@ -14,7 +14,7 @@ type LogHandler struct {
 	producer domain.LogProducer
 }
 
-func NewLogHandler(producer domain.LogProducer) *LogHandler {
+func NewHandler(producer domain.LogProducer) *LogHandler {
 	return &LogHandler{producer}
 }
 

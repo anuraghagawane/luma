@@ -1,4 +1,5 @@
-package api
+// Package query provides api handlers for quering logs
+package query
 
 import (
 	"encoding/json"
@@ -14,7 +15,7 @@ type QueryHandler struct {
 	logRepo *elastic.LogRepo
 }
 
-func NewQueryHandler(logRepo *elastic.LogRepo) *QueryHandler {
+func NewHandler(logRepo *elastic.LogRepo) *QueryHandler {
 	return &QueryHandler{
 		logRepo: logRepo,
 	}

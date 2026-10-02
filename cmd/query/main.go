@@ -1,13 +1,17 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
-	"github.com/anuraghagawane/luma/internal/api"
+	"github.com/anuraghagawane/luma/internal/api/auth"
+	"github.com/anuraghagawane/luma/internal/api/query"
 	"github.com/anuraghagawane/luma/internal/config"
 	"github.com/anuraghagawane/luma/internal/repository/elastic"
+	"github.com/anuraghagawane/luma/internal/repository/postgres"
 )
 
 func main() {
@@ -18,6 +22,13 @@ func main() {
 		log.Fatalf("Error while parsing env: %v", err)
 	}
 
+	dbpool, err := postgres.NewPool(context.Background(), cfg.PostgresDBUrl)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to create connection pool: %v\n", err)
+		os.Exit(1)
+	}
+	defer dbpool.Close()
+
 	elasticAddresses := []string{cfg.ElasticBroker}
 	elasticIndex := "logs"
 	logRepo, err := elastic.NewLogRepo(elasticAddresses, elasticIndex)
@@ -25,8 +36,12 @@ func main() {
 		log.Fatalf("Failed to initiate Log repository %v", err)
 	}
 
-	queryHandler := api.NewQueryHandler(logRepo)
+	userRepo := postgres.NewUserRepo(dbpool)
+
+	queryHandler := query.NewHandler(logRepo)
+	authHandler := auth.NewHandler(dbpool, userRepo)
 	http.HandleFunc("/v1/logs", queryHandler.HandleLogQuery)
+	http.HandleFunc("/v1/createaccount", authHandler.HandleCreateAccount)
 
 	log.Fatal(http.ListenAndServe(":"+cfg.QueryPort, nil))
 }
