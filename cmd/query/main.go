@@ -46,9 +46,9 @@ func main() {
 	queryHandler := query.NewHandler(logRepo)
 	authHandler := auth.NewHandler(userRepo, tokenManager)
 
-	http.HandleFunc("/v1/logs", queryHandler.HandleLogQuery)
 	http.HandleFunc("/v1/createaccount", authHandler.HandleCreateAccount)
 	http.HandleFunc("/v1/login", authHandler.HandleLogin)
+	http.Handle("/v1/logs", auth.AuthMiddleware(tokenManager)(http.HandlerFunc(queryHandler.HandleLogQuery)))
 
 	log.Fatal(http.ListenAndServe(":"+cfg.QueryPort, nil))
 }

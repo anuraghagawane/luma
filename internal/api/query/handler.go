@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/anuraghagawane/luma/internal/api/auth"
 	"github.com/anuraghagawane/luma/internal/domain"
 	"github.com/anuraghagawane/luma/internal/repository/elastic"
 )
@@ -25,6 +26,11 @@ func (h *QueryHandler) HandleLogQuery(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	switch r.Method {
 	case http.MethodGet:
+		tenantID, ok := auth.TenantIDFromContext(r.Context())
+		if !ok {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
 		data, err := io.ReadAll(r.Body)
 		if err != nil {
 			http.Error(w, "Failed to read request body", http.StatusBadRequest)
@@ -37,6 +43,7 @@ func (h *QueryHandler) HandleLogQuery(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		logQuery.Tenant = tenantID
 		if err := logQuery.ValidateAndDefault(); err != nil {
 			http.Error(w, "Error: "+err.Error(), http.StatusBadRequest)
 			return

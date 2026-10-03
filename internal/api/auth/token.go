@@ -23,7 +23,7 @@ func NewTokenManager(secret string, tokenLifetime int) (*TokenManager, error) {
 	return &TokenManager{[]byte(secret), tokenLifetime}, nil
 }
 
-type customClaims struct {
+type CustomClaims struct {
 	ID       string `json:"id"`
 	Email    string `json:"email"`
 	TenantID string `json:"tenantid"`
@@ -35,7 +35,7 @@ func (m *TokenManager) IssueToken(user *domain.User) (string, error) {
 	now := time.Now()
 	expirationTime := now.Add(time.Hour * time.Duration(m.tokenLifetime))
 
-	claims := &customClaims{
+	claims := &CustomClaims{
 		ID:       user.ID,
 		Email:    user.Email,
 		TenantID: user.TenantID,
@@ -55,4 +55,19 @@ func (m *TokenManager) IssueToken(user *domain.User) (string, error) {
 	}
 
 	return tokenString, nil
+}
+
+func (m *TokenManager) ParseToken(tokenString string) (*CustomClaims, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(t *jwt.Token) (any, error) {
+		return m.key, nil
+	}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}), jwt.WithIssuer("luma"))
+	if err != nil {
+		return nil, err
+	}
+
+	if claims, ok := token.Claims.(*CustomClaims); ok && token.Valid {
+		return claims, nil
+	}
+
+	return nil, errors.New("invalid or expired token")
 }

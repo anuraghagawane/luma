@@ -36,7 +36,7 @@ type Log struct {
 }
 
 type LogQuery struct {
-	Tenant   string   `json:"tenant"`
+	Tenant   string   `json:"-"`
 	From     int64    `json:"from"`
 	To       int64    `json:"to"`
 	Service  string   `json:"service"`
