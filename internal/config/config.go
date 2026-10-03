@@ -14,6 +14,7 @@ type Config struct {
 	CollectorPort string
 	QueryPort     string
 	PostgresDBUrl string
+	JwtSecret     string
 }
 
 func LoadEnv() (*Config, error) {
@@ -27,5 +28,6 @@ func LoadEnv() (*Config, error) {
 		CollectorPort: os.Getenv("COLLECTOR_PORT"),
 		QueryPort:     os.Getenv("QUERY_PORT"),
 		PostgresDBUrl: os.Getenv("POSTGRES_DB_URL"),
+		JwtSecret:     os.Getenv("JWT_SECRET"),
 	}, nil
 }

@@ -29,4 +29,5 @@ type User struct {
 type UserRepository interface {
 	// Create(ctx context.Context, user *User) error
 	CreateTenantAndUser(ctx context.Context, user *User, tenant *Tenant) error
+	FindUserWithEmail(ctx context.Context, email string) (*User, error)
 }

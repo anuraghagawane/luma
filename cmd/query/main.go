@@ -38,10 +38,17 @@ func main() {
 
 	userRepo := postgres.NewUserRepo(dbpool)
 
+	tokenManager, err := auth.NewTokenManager(cfg.JwtSecret)
+	if err != nil {
+		log.Fatalf("Failed to initiate token manager: %v", err)
+	}
+
 	queryHandler := query.NewHandler(logRepo)
-	authHandler := auth.NewHandler(dbpool, userRepo)
+	authHandler := auth.NewHandler(userRepo, tokenManager)
+
 	http.HandleFunc("/v1/logs", queryHandler.HandleLogQuery)
 	http.HandleFunc("/v1/createaccount", authHandler.HandleCreateAccount)
+	http.HandleFunc("/v1/login", authHandler.HandleLogin)
 
 	log.Fatal(http.ListenAndServe(":"+cfg.QueryPort, nil))
 }
