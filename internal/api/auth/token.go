@@ -9,14 +9,18 @@ import (
 )
 
 type TokenManager struct {
-	key []byte
+	key           []byte
+	tokenLifetime int
 }
 
-func NewTokenManager(secret string) (*TokenManager, error) {
-	if len(secret) < 5 {
-		return nil, errors.New("invalid jwt secret, need secret atleast 5 characters long")
+func NewTokenManager(secret string, tokenLifetime int) (*TokenManager, error) {
+	if len(secret) < 32 {
+		return nil, errors.New("invalid jwt secret, need secret atleast 32 characters long")
 	}
-	return &TokenManager{[]byte(secret)}, nil
+	if tokenLifetime <= 0 {
+		return nil, errors.New("invalid jwt token life time duration, need non-zero and non-negative value")
+	}
+	return &TokenManager{[]byte(secret), tokenLifetime}, nil
 }
 
 type customClaims struct {
@@ -28,7 +32,8 @@ type customClaims struct {
 }
 
 func (m *TokenManager) IssueToken(user *domain.User) (string, error) {
-	expirationTime := time.Now().Add(1 * time.Minute)
+	now := time.Now()
+	expirationTime := now.Add(time.Hour * time.Duration(m.tokenLifetime))
 
 	claims := &customClaims{
 		ID:       user.ID,
@@ -37,7 +42,7 @@ func (m *TokenManager) IssueToken(user *domain.User) (string, error) {
 		Role:     string(user.Role),
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			IssuedAt:  jwt.NewNumericDate(now),
 			Issuer:    "luma",
 		},
 	}

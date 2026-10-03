@@ -4,6 +4,7 @@ package config
 import (
 	"log"
 	"os"
+	"strconv"
 
 	"github.com/joho/godotenv"
 )
@@ -15,11 +16,17 @@ type Config struct {
 	QueryPort     string
 	PostgresDBUrl string
 	JwtSecret     string
+	TokenLifetime int
 }
 
 func LoadEnv() (*Config, error) {
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found, relying on system environment variables")
+	}
+
+	tokenLifeTime, err := strconv.Atoi(os.Getenv("JWT_TOKEN_LIFE_TIME"))
+	if err != nil {
+		tokenLifeTime = 10
 	}
 
 	return &Config{
@@ -29,5 +36,6 @@ func LoadEnv() (*Config, error) {
 		QueryPort:     os.Getenv("QUERY_PORT"),
 		PostgresDBUrl: os.Getenv("POSTGRES_DB_URL"),
 		JwtSecret:     os.Getenv("JWT_SECRET"),
+		TokenLifetime: tokenLifeTime,
 	}, nil
 }

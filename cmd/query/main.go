@@ -38,7 +38,7 @@ func main() {
 
 	userRepo := postgres.NewUserRepo(dbpool)
 
-	tokenManager, err := auth.NewTokenManager(cfg.JwtSecret)
+	tokenManager, err := auth.NewTokenManager(cfg.JwtSecret, cfg.TokenLifetime)
 	if err != nil {
 		log.Fatalf("Failed to initiate token manager: %v", err)
 	}
