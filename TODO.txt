@@ -6,8 +6,8 @@ Query API
 [X] Input validation: validate time ranges, pagination values, log levels, and required query fields at the API boundary.
 [X] User management: setup postgres, decide schemas, build user management api layer
 [X] Authentication: authenticate requests and derive the tenant ID from trusted token claims instead of request input or hardcoded values.
+[X] Timeout: set timeout for each query.
 [ ] Tests: add handler tests for validation, authentication, tenant isolation, query failures, and successful responses; add repository/integration coverage for Elasticsearch queries.
-[ ] Timeout: set timeout for each query.
 [ ] Migrations scripts
 [ ] Uniform response builder/handler
 

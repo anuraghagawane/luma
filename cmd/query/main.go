@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/anuraghagawane/luma/internal/api/auth"
 	"github.com/anuraghagawane/luma/internal/api/query"
@@ -46,9 +47,18 @@ func main() {
 	queryHandler := query.NewHandler(logRepo)
 	authHandler := auth.NewHandler(userRepo, tokenManager)
 
-	http.HandleFunc("/v1/createaccount", authHandler.HandleCreateAccount)
-	http.HandleFunc("/v1/login", authHandler.HandleLogin)
-	http.Handle("/v1/logs", auth.AuthMiddleware(tokenManager)(http.HandlerFunc(queryHandler.HandleLogQuery)))
+	mux := http.NewServeMux()
+	mux.HandleFunc("/v1/createaccount", authHandler.HandleCreateAccount)
+	mux.HandleFunc("/v1/login", authHandler.HandleLogin)
+	mux.Handle("/v1/logs", auth.AuthMiddleware(tokenManager)(http.HandlerFunc(queryHandler.HandleLogQuery)))
 
-	log.Fatal(http.ListenAndServe(":"+cfg.QueryPort, nil))
+	server := &http.Server{
+		Addr:              ":" + cfg.QueryPort,
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
+	log.Fatal(server.ListenAndServe())
 }

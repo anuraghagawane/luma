@@ -2,10 +2,13 @@
 package query
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/anuraghagawane/luma/internal/api/auth"
 	"github.com/anuraghagawane/luma/internal/domain"
@@ -13,12 +16,19 @@ import (
 )
 
 type QueryHandler struct {
-	logRepo *elastic.LogRepo
+	logRepo      *elastic.LogRepo
+	queryTimeout time.Duration
 }
 
 func NewHandler(logRepo *elastic.LogRepo) *QueryHandler {
+	queryTimeout, err := time.ParseDuration("1m")
+	if err != nil {
+		log.Fatalf("failed to initialize QueryHandler: %v", err)
+		return nil
+	}
 	return &QueryHandler{
-		logRepo: logRepo,
+		logRepo:      logRepo,
+		queryTimeout: queryTimeout,
 	}
 }
 
@@ -49,8 +59,15 @@ func (h *QueryHandler) HandleLogQuery(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		logs, err := h.logRepo.Query(r.Context(), logQuery)
+		queryCtx, cancel := context.WithTimeout(r.Context(), h.queryTimeout)
+		defer cancel()
+
+		logs, err := h.logRepo.Query(queryCtx, logQuery)
 		if err != nil {
+			if errors.Is(queryCtx.Err(), context.DeadlineExceeded) {
+				http.Error(w, "Error: Query timed out", http.StatusGatewayTimeout)
+				return
+			}
 			log.Printf("Failed to Query: %v", err)
 			http.Error(w, "Error: Query Failed", http.StatusInternalServerError)
 			return
