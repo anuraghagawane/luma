@@ -44,7 +44,11 @@ func main() {
 		log.Fatalf("Failed to initiate token manager: %v", err)
 	}
 
-	queryHandler := query.NewHandler(logRepo)
+	queryTimeout, err := time.ParseDuration("1m")
+	if err != nil {
+		log.Fatalf("failed to initialize QueryHandler: %v", err)
+	}
+	queryHandler := query.NewHandler(logRepo, queryTimeout)
 	authHandler := auth.NewHandler(userRepo, tokenManager)
 
 	mux := http.NewServeMux()

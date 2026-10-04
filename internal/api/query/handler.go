@@ -12,20 +12,14 @@ import (
 
 	"github.com/anuraghagawane/luma/internal/api/auth"
 	"github.com/anuraghagawane/luma/internal/domain"
-	"github.com/anuraghagawane/luma/internal/repository/elastic"
 )
 
 type QueryHandler struct {
-	logRepo      *elastic.LogRepo
+	logRepo      domain.QueryRepository
 	queryTimeout time.Duration
 }
 
-func NewHandler(logRepo *elastic.LogRepo) *QueryHandler {
-	queryTimeout, err := time.ParseDuration("1m")
-	if err != nil {
-		log.Fatalf("failed to initialize QueryHandler: %v", err)
-		return nil
-	}
+func NewHandler(logRepo domain.QueryRepository, queryTimeout time.Duration) *QueryHandler {
 	return &QueryHandler{
 		logRepo:      logRepo,
 		queryTimeout: queryTimeout,

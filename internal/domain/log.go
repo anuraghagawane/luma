@@ -85,3 +85,7 @@ type LogProducer interface {
 type LogRepository interface {
 	Index(ctx context.Context, id string, document Log) error
 }
+
+type QueryRepository interface {
+	Query(ctx context.Context, logQuery LogQuery) (*QueryResponse, error)
+}
