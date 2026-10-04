@@ -3,7 +3,7 @@ package auth
 import (
 	"errors"
 	"fmt"
-	"net/mail"
+	"regexp"
 	"unicode"
 )
 
@@ -47,8 +47,11 @@ func (b LoginRequestBody) Validate() error {
 }
 
 func validateEmail(email string) error {
-	_, err := mail.ParseAddress(email)
-	return err
+	emailRegex := regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
+	if !emailRegex.MatchString(email) {
+		return fmt.Errorf("invalid email")
+	}
+	return nil
 }
 
 func validatePassword(password string) error {
