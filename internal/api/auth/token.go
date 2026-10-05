@@ -60,7 +60,7 @@ func (m *TokenManager) IssueToken(user *domain.User) (string, error) {
 func (m *TokenManager) ParseToken(tokenString string) (*CustomClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(t *jwt.Token) (any, error) {
 		return m.key, nil
-	}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}), jwt.WithIssuer("luma"))
+	}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}), jwt.WithIssuer("luma"), jwt.WithExpirationRequired())
 	if err != nil {
 		return nil, err
 	}
