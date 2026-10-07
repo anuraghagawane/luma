@@ -7,11 +7,11 @@ import (
 	"strings"
 )
 
-type contextKey string
+type ContextKey string
 
 const (
-	tenantIDKey contextKey = "tenantid"
-	userIDKey   contextKey = "id"
+	tenantIDKey ContextKey = "tenantid"
+	userIDKey   ContextKey = "id"
 )
 
 func TenantIDFromContext(ctx context.Context) (string, bool) {

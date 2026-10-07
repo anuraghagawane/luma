@@ -40,7 +40,7 @@ type LogQuery struct {
 	From     int64    `json:"from"`
 	To       int64    `json:"to"`
 	Service  string   `json:"service"`
-	LogLevel LogLevel `json:"log_level"`
+	LogLevel LogLevel `json:"log_level,omitempty"`
 	Keyword  string   `json:"keyword"`
 	Cursor   string   `json:"cursor"`
 	Limit    int64    `json:"limit"`
