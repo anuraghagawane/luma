@@ -7,7 +7,8 @@ Query API
 [X] User management: setup postgres, decide schemas, build user management api layer
 [X] Authentication: authenticate requests and derive the tenant ID from trusted token claims instead of request input or hardcoded values.
 [X] Timeout: set timeout for each query.
-[ ] Tests: add handler tests for validation, authentication, tenant isolation, query failures, and successful responses; add repository/integration coverage for Elasticsearch queries.
+[X] Tests: add handler tests for validation, authentication, tenant isolation, query failures, and successful responses; 
+[ ] Add repository/integration coverage for Elasticsearch queries.
 [ ] Migrations scripts
 [ ] Uniform response builder/handler
 
