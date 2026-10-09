@@ -5,6 +5,8 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+
+	"github.com/anuraghagawane/luma/internal/api/response"
 )
 
 type ContextKey string
@@ -25,13 +27,13 @@ func AuthMiddleware(m *TokenManager) func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			token, err := bearerToken(r)
 			if err != nil {
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				response.Unauthorized(w, "Unauthorized")
 				return
 			}
 
 			claims, err := m.ParseToken(token)
 			if err != nil {
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				response.Unauthorized(w, "Unauthorized")
 				return
 			}
 

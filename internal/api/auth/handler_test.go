@@ -221,7 +221,7 @@ func (r *loginAuthRepo) FindUserWithEmail(ctx context.Context, email string) (*d
 type LoginResponse struct {
 	Status  string `json:"status"`
 	Message string `json:"message"`
-	Token   string `json:"token"`
+	Data    LoginData
 }
 
 func TestHandleLoginWithValidUser(t *testing.T) {
@@ -299,7 +299,7 @@ func TestHandleLoginWithValidUser(t *testing.T) {
 		t.Fatalf("response status: %v, want %v", response.Status, "success")
 	}
 
-	claims, err := tokenManager.ParseToken(response.Token)
+	claims, err := tokenManager.ParseToken(response.Data.Token)
 	if err != nil {
 		t.Fatal("Failed to parse the issued token")
 	}
@@ -397,7 +397,7 @@ func TestHandleLoginWithInvalidPassword(t *testing.T) {
 		t.Fatalf("response status: %v, want %v", response.Status, "failure")
 	}
 
-	if response.Token != "" {
+	if response.Data.Token != "" {
 		t.Fatal("issued token")
 	}
 }
@@ -464,7 +464,7 @@ func TestHandleLoginWithInvalidUser(t *testing.T) {
 		t.Fatalf("response status: %v, want %v", response.Status, "failure")
 	}
 
-	if response.Token != "" {
+	if response.Data.Token != "" {
 		t.Fatal("issued token")
 	}
 }

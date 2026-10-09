@@ -41,6 +41,11 @@ func (r *recordingRepo) Query(ctx context.Context, logQuery domain.LogQuery) (*d
 	return r.response, r.err
 }
 
+type QueryResponse struct {
+	Status string               `json:"status"`
+	Data   domain.QueryResponse `json:"data"`
+}
+
 func TestHandleLogQuerySuccess(t *testing.T) {
 	cursor := "next-cursor"
 
@@ -101,25 +106,25 @@ func TestHandleLogQuerySuccess(t *testing.T) {
 		)
 	}
 
-	var response domain.QueryResponse
+	var response QueryResponse
 	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
 
-	if len(response.Logs) != 1 {
-		t.Fatalf("logs = %d, want 1", len(response.Logs))
+	if len(response.Data.Logs) != 1 {
+		t.Fatalf("logs = %d, want 1", len(response.Data.Logs))
 	}
 
-	if response.Logs[0].EventID != "event-1" {
+	if response.Data.Logs[0].EventID != "event-1" {
 		t.Errorf(
 			"event ID = %q, want %q",
-			response.Logs[0].EventID,
+			response.Data.Logs[0].EventID,
 			"event-1",
 		)
 	}
 
-	if *response.Cursor != cursor {
-		t.Errorf("cursor = %q, want %q", *response.Cursor, cursor)
+	if *response.Data.Cursor != cursor {
+		t.Errorf("cursor = %q, want %q", *response.Data.Cursor, cursor)
 	}
 }
 

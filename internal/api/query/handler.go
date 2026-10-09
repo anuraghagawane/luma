@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/anuraghagawane/luma/internal/api/auth"
+	"github.com/anuraghagawane/luma/internal/api/response"
 	"github.com/anuraghagawane/luma/internal/domain"
 )
 
@@ -32,24 +33,24 @@ func (h *QueryHandler) HandleLogQuery(w http.ResponseWriter, r *http.Request) {
 	case http.MethodGet:
 		tenantID, ok := auth.TenantIDFromContext(r.Context())
 		if !ok {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			response.Unauthorized(w, "Unauthorized")
 			return
 		}
 		data, err := io.ReadAll(r.Body)
 		if err != nil {
-			http.Error(w, "Failed to read request body", http.StatusBadRequest)
+			response.BadRequest(w, "Failed to read request body")
 			return
 		}
 		var logQuery domain.LogQuery
 		err = json.Unmarshal(data, &logQuery)
 		if err != nil {
-			http.Error(w, "Error: Invalid Input", http.StatusBadRequest)
+			response.BadRequest(w, "Invalid Input")
 			return
 		}
 
 		logQuery.Tenant = tenantID
 		if err := logQuery.ValidateAndDefault(); err != nil {
-			http.Error(w, "Error: "+err.Error(), http.StatusBadRequest)
+			response.BadRequest(w, err.Error())
 			return
 		}
 
@@ -59,28 +60,17 @@ func (h *QueryHandler) HandleLogQuery(w http.ResponseWriter, r *http.Request) {
 		logs, err := h.logRepo.Query(queryCtx, logQuery)
 		if err != nil {
 			if errors.Is(queryCtx.Err(), context.DeadlineExceeded) {
-				http.Error(w, "Error: Query timed out", http.StatusGatewayTimeout)
+				response.GatewayTimeout(w, "Query timed out")
 				return
 			}
 			log.Printf("Failed to Query: %v", err)
-			http.Error(w, "Error: Query Failed", http.StatusInternalServerError)
+			response.InternalServerError(w, "Query failed")
 			return
 		}
-		w.Header().Set("Content-Type", "application/json")
-		marshalledLog, err := json.Marshal(logs)
-		if err != nil {
-			log.Printf("Failed to marshall log: %v", err)
-			http.Error(w, "Error: failed to build response", http.StatusInternalServerError)
-			return
-		}
-		_, err = w.Write(marshalledLog)
-		if err != nil {
-			log.Printf("Failed write response: %v", err)
-			http.Error(w, "Error: failed to respond", http.StatusInternalServerError)
-			return
-		}
+
+		response.OK(w, "", logs)
 	default:
-		http.Error(w, "method not suported", http.StatusMethodNotAllowed)
+		response.MethodNotAllowed(w, "method not supported")
 		return
 	}
 }

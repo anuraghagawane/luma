@@ -128,3 +128,7 @@ func validateTenantName(tenantName string) error {
 
 	return nil
 }
+
+type LoginData struct {
+	Token string `json:"token"`
+}

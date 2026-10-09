@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/anuraghagawane/luma/internal/api/response"
 	"github.com/anuraghagawane/luma/internal/domain"
 )
 
@@ -25,26 +26,25 @@ func (h *LogHandler) HandleLog(w http.ResponseWriter, r *http.Request) {
 		var log domain.Log
 		data, err := io.ReadAll(r.Body)
 		if err != nil {
-			http.Error(w, "Failed to read request body", http.StatusBadRequest)
+			response.BadRequest(w, "Failed to read request boyd")
 			return
 		}
 
 		err = json.Unmarshal(data, &log)
 		if err != nil {
-			http.Error(w, "Error: Invalid input", http.StatusBadRequest)
+			response.BadRequest(w, "Invalid input")
 			return
 		}
 
 		err = h.producer.Publish(r.Context(), "log", []byte(log.EventID), data)
 		if err != nil {
 			fmt.Printf("Error while publishing log: %v", err)
-			http.Error(w, "Error: failed", http.StatusInternalServerError)
+			response.InternalServerError(w, "failed")
 		}
 		fmt.Printf("%+v\n", log)
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+		response.OK(w, "", nil)
 	default:
-		http.Error(w, "method not supported", http.StatusMethodNotAllowed)
+		response.MethodNotAllowed(w, "method not supported")
 	}
 }
 
@@ -55,12 +55,12 @@ func (h *LogHandler) HandleBulkLog(w http.ResponseWriter, r *http.Request) {
 		var logs []domain.Log
 		data, err := io.ReadAll(r.Body)
 		if err != nil {
-			http.Error(w, "Failed to read request body", http.StatusBadRequest)
+			response.BadRequest(w, "Failed to read request boyd")
 			return
 		}
 		err = json.Unmarshal(data, &logs)
 		if err != nil {
-			http.Error(w, "Error: Invalid input", http.StatusBadRequest)
+			response.BadRequest(w, "Invalid input")
 			return
 		}
 
@@ -68,13 +68,12 @@ func (h *LogHandler) HandleBulkLog(w http.ResponseWriter, r *http.Request) {
 			data, _ := json.Marshal(log)
 			err = h.producer.Publish(r.Context(), "log", []byte(log.EventID), data)
 			if err != nil {
-				http.Error(w, "Error: failed", http.StatusInternalServerError)
+				response.InternalServerError(w, "failed")
 				return
 			}
 		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{"status": "success", "count": len(logs)})
+		response.OK(w, "", map[string]any{"count": len(logs)})
 	default:
-		http.Error(w, "method not supported", http.StatusMethodNotAllowed)
+		response.MethodNotAllowed(w, "method not supported")
 	}
 }
