@@ -2,6 +2,7 @@
 .PHONY: up down restart ps stop hard-restart
 .PHONY: collector worker query
 .PHONY: test fmt
+.PHONY: migrate
 
 help:
 	@echo "Available commands:"
@@ -17,12 +18,14 @@ help:
 	@echo "Services:"
 	@echo "  make collector           Run collector"
 	@echo "  make worker              Run worker"
+	@echo "  make query               Run query"
 	@echo ""
 	@echo "Code:"
 	@echo "  make test                Run tests"
 	@echo "  make fmt                 Format code"
-
-
+	@echo ""
+	@echo "Migration:"
+	@echo "  make migrate             Migrate Schema"
 
 # Infrastructure
 up:
@@ -63,3 +66,7 @@ test:
 
 fmt:
 	go fmt ./...
+
+#Migrations
+migrate:
+	go run ./cmd/migrate/main.go
