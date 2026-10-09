@@ -9,8 +9,8 @@ Query API
 [X] Timeout: set timeout for each query.
 [X] Tests: add handler tests for validation, authentication, tenant isolation, query failures, and successful responses; 
 [ ] Add repository/integration coverage for Elasticsearch queries.
-[ ] Migrations scripts
-[ ] Uniform response builder/handler
+[X] Migrations scripts
+[X] Uniform response builder/handler
 
 Ingestion Authentication
 ========================
