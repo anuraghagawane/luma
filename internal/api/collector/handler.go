@@ -40,6 +40,7 @@ func (h *LogHandler) HandleLog(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			fmt.Printf("Error while publishing log: %v", err)
 			response.InternalServerError(w, "failed")
+			return
 		}
 		fmt.Printf("%+v\n", log)
 		response.OK(w, "", nil)
