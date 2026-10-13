@@ -27,9 +27,11 @@ func OK(w http.ResponseWriter, message string, data any) {
 	})
 }
 
-func Created(w http.ResponseWriter) {
+func Created(w http.ResponseWriter, message string, data any) {
 	WriteResponse(w, http.StatusCreated, JSONResponse{
-		Status: "success",
+		Status:  "success",
+		Message: message,
+		Data:    data,
 	})
 }
 

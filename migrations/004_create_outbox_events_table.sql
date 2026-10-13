@@ -1,4 +1,4 @@
-CREATE TABLE outbox_events (
+CREATE TABLE IF NOT EXISTS outbox_events (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     aggregate_type VARCHAR(50) NOT NULL,
     aggregate_id UUID NOT NULL,
@@ -19,7 +19,7 @@ CREATE TABLE outbox_events (
     CONSTRAINT outbox_event_version_unique UNIQUE (aggregate_type, aggregate_id, aggregate_version)
 );
 
-CREATE INDEX outbox_pending_events_idx ON outbox_events (available_at, created_at) WHERE status = 'PENDING';
+CREATE INDEX IF NOT EXISTS outbox_pending_events_idx ON outbox_events (available_at, created_at) WHERE status = 'PENDING';
 
-CREATE INDEX outbox_expired_leases_idx ON outbox_events (locked_until) WHERE status = 'PROCESSING';
+CREATE INDEX IF NOT EXISTS  outbox_expired_leases_idx ON outbox_events (locked_until) WHERE status = 'PROCESSING';
 

@@ -53,7 +53,7 @@ func (h *AuthHandler) HandleCreateAccount(w http.ResponseWriter, r *http.Request
 			response.BadRequest(w, err.Error())
 			return
 		}
-		response.Created(w)
+		response.Created(w, "", nil)
 	default:
 		response.MethodNotAllowed(w, "method not supported")
 	}

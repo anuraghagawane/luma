@@ -22,6 +22,12 @@ func TenantIDFromContext(ctx context.Context) (string, bool) {
 	return id, ok
 }
 
+func UserIDFromContext(ctx context.Context) (string, bool) {
+	ctxValue := ctx.Value(userIDKey)
+	id, ok := ctxValue.(string)
+	return id, ok
+}
+
 func AuthMiddleware(m *TokenManager) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

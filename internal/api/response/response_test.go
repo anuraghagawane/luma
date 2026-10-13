@@ -77,7 +77,8 @@ func TestOK(t *testing.T) {
 
 func TestCreated(t *testing.T) {
 	rec := httptest.NewRecorder()
-	Created(rec)
+	message := "api created"
+	Created(rec, message, "abc")
 
 	if rec.Header().Get("Content-Type") != "application/json" {
 		t.Fatalf("Content-Type: %v, want: application/json", rec.Header().Get("Content-Type"))
@@ -102,8 +103,12 @@ func TestCreated(t *testing.T) {
 		t.Fatalf("Status: %v, want: %v", response.Status, "success")
 	}
 
-	if response.Data != nil {
-		t.Fatalf("data: %v, want: nil", response.Data)
+	if response.Message != message {
+		t.Fatalf("Message: %v, want: %v", response.Message, message)
+	}
+
+	if response.Data != "abc" {
+		t.Fatalf("Data: %v, want: %v", response.Data, "abc")
 	}
 }
 

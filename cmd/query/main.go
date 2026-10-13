@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/anuraghagawane/luma/internal/api/apikey"
 	"github.com/anuraghagawane/luma/internal/api/auth"
 	"github.com/anuraghagawane/luma/internal/api/query"
 	"github.com/anuraghagawane/luma/internal/config"
@@ -38,6 +39,7 @@ func main() {
 	}
 
 	userRepo := postgres.NewUserRepo(dbpool)
+	apiKeyRepo := postgres.NewAPIKeyRepo(dbpool)
 
 	tokenManager, err := auth.NewTokenManager(cfg.JwtSecret, cfg.TokenLifetime)
 	if err != nil {
@@ -50,11 +52,14 @@ func main() {
 	}
 	queryHandler := query.NewHandler(logRepo, queryTimeout)
 	authHandler := auth.NewHandler(userRepo, tokenManager)
+	apiKeyHandler := apikey.NewAPIKeyHandler(apiKeyRepo)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/createaccount", authHandler.HandleCreateAccount)
 	mux.HandleFunc("/v1/login", authHandler.HandleLogin)
 	mux.Handle("/v1/logs", auth.AuthMiddleware(tokenManager)(http.HandlerFunc(queryHandler.HandleLogQuery)))
+
+	mux.Handle("/v1/apikey", auth.AuthMiddleware(tokenManager)(http.HandlerFunc(apiKeyHandler.HandleAPIKey)))
 
 	server := &http.Server{
 		Addr:              ":" + cfg.QueryPort,
