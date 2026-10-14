@@ -18,6 +18,32 @@ func NewAPIKeyRepo(client *pgxpool.Pool) *APIKeyRepo {
 	return &APIKeyRepo{client: client}
 }
 
+func (r *APIKeyRepo) AllAPIKey(ctx context.Context, tenantID string) ([]domain.APIKey, error) {
+	query := "select name, key_id, status, created_at, updated_at, version from api_keys where tenant_id = $1 order by created_at desc, key_id;"
+
+	rows, err := r.client.Query(ctx, query, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrive api keys: %w", err)
+	}
+	defer rows.Close()
+
+	var apikeys []domain.APIKey
+	for rows.Next() {
+		var apikey domain.APIKey
+		err := rows.Scan(&apikey.Name, &apikey.KeyID, &apikey.Status, &apikey.CreatedAt, &apikey.UpdatedAt, &apikey.Version)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan api keys: %w", err)
+		}
+
+		apikeys = append(apikeys, apikey)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to retrive api keys: %w", err)
+	}
+	return apikeys, nil
+}
+
 func (r *APIKeyRepo) CreateAPIKeyAndEvent(ctx context.Context, apiKeyObj domain.APIKey) error {
 	db, err := r.client.Begin(ctx)
 	if err != nil {

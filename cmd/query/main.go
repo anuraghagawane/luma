@@ -59,6 +59,7 @@ func main() {
 	mux.HandleFunc("/v1/login", authHandler.HandleLogin)
 	mux.Handle("/v1/logs", auth.AuthMiddleware(tokenManager)(http.HandlerFunc(queryHandler.HandleLogQuery)))
 
+	mux.Handle("GET /v1/apikey", auth.AuthMiddleware(tokenManager)(http.HandlerFunc(apiKeyHandler.HandleAPIKeyGet)))
 	mux.Handle("POST /v1/apikey", auth.AuthMiddleware(tokenManager)(http.HandlerFunc(apiKeyHandler.HandleAPIKeyPost)))
 	mux.Handle("DELETE /v1/apikey/{id}", auth.AuthMiddleware(tokenManager)(http.HandlerFunc(apiKeyHandler.HandleAPIKeyDelete)))
 

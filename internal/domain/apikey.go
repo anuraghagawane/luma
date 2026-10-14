@@ -41,6 +41,7 @@ type APIKeyRedisPayload struct {
 }
 
 type APIKeyRepository interface {
+	AllAPIKey(ctx context.Context, tenantID string) ([]APIKey, error)
 	CreateAPIKeyAndEvent(ctx context.Context, apiKeyObj APIKey) error
 	DeleteAPIKeyAndCreateEvent(ctx context.Context, keyID string, tenantID string, userID string) error
 }

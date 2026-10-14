@@ -10,6 +10,7 @@ import (
 	"github.com/anuraghagawane/luma/internal/api/auth"
 	"github.com/anuraghagawane/luma/internal/api/response"
 	"github.com/anuraghagawane/luma/internal/domain"
+	"github.com/google/uuid"
 )
 
 type APIKeyHander struct {
@@ -18,6 +19,28 @@ type APIKeyHander struct {
 
 func NewAPIKeyHandler(apikeyRepo domain.APIKeyRepository) *APIKeyHander {
 	return &APIKeyHander{apiKeyRepo: apikeyRepo}
+}
+
+func (h *APIKeyHander) HandleAPIKeyGet(w http.ResponseWriter, r *http.Request) {
+	tenantID, ok := auth.TenantIDFromContext(r.Context())
+	if !ok {
+		response.Unauthorized(w, "Unauthorized")
+		return
+	}
+
+	err := uuid.Validate(tenantID)
+	if err != nil {
+		response.BadRequest(w, "invalid tenantID")
+		return
+	}
+
+	keys, err := h.apiKeyRepo.AllAPIKey(r.Context(), tenantID)
+	if err != nil {
+		response.InternalServerError(w, "failed to fetch api keys")
+		return
+	}
+
+	response.OK(w, "", ResponseFromAPIKeys(keys))
 }
 
 func (h *APIKeyHander) HandleAPIKeyPost(w http.ResponseWriter, r *http.Request) {
@@ -87,7 +110,7 @@ func (h *APIKeyHander) HandleAPIKeyDelete(w http.ResponseWriter, r *http.Request
 	err = h.apiKeyRepo.DeleteAPIKeyAndCreateEvent(r.Context(), keyID, tenantID, userID)
 	if err != nil {
 		if errors.Is(err, domain.ErrKeyAlreadyRevoked) {
-			response.Conflict(w, "key alredy revoked")
+			response.Conflict(w, "key already revoked")
 			return
 		}
 		if errors.Is(err, domain.ErrKeyNotFound) {
