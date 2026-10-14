@@ -3,7 +3,7 @@ package apikey
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
 	"io"
 	"net/http"
 
@@ -20,20 +20,7 @@ func NewAPIKeyHandler(apikeyRepo domain.APIKeyRepository) *APIKeyHander {
 	return &APIKeyHander{apiKeyRepo: apikeyRepo}
 }
 
-func (h *APIKeyHander) HandleAPIKey(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodPost:
-		h.handleAPIKeyPost(w, r)
-		return
-	case http.MethodDelete:
-		h.handleAPIKeyDelete(w, r)
-		return
-	default:
-		response.MethodNotAllowed(w, "method not allowed")
-	}
-}
-
-func (h *APIKeyHander) handleAPIKeyPost(w http.ResponseWriter, r *http.Request) {
+func (h *APIKeyHander) HandleAPIKeyPost(w http.ResponseWriter, r *http.Request) {
 	tenantID, ok := auth.TenantIDFromContext(r.Context())
 	if !ok {
 		response.Unauthorized(w, "Unauthorized")
@@ -77,8 +64,39 @@ func (h *APIKeyHander) handleAPIKeyPost(w http.ResponseWriter, r *http.Request) 
 	response.Created(w, "", map[string]any{"name": apiKeyObj.Name, "api_key": apiKeyObj.Key})
 }
 
-func (h *APIKeyHander) handleAPIKeyDelete(w http.ResponseWriter, r *http.Request) {
-	// TODO:
-	fmt.Println("handling delete")
-	response.InternalServerError(w, "Not implemented")
+func (h *APIKeyHander) HandleAPIKeyDelete(w http.ResponseWriter, r *http.Request) {
+	tenantID, ok := auth.TenantIDFromContext(r.Context())
+	if !ok {
+		response.Unauthorized(w, "Unauthorized")
+		return
+	}
+	userID, ok := auth.UserIDFromContext(r.Context())
+	if !ok {
+		response.Unauthorized(w, "Unauthorized")
+		return
+	}
+
+	keyID := r.PathValue("id")
+
+	err := validateKeyID(keyID)
+	if err != nil {
+		response.BadRequest(w, err.Error())
+		return
+	}
+
+	err = h.apiKeyRepo.DeleteAPIKeyAndCreateEvent(r.Context(), keyID, tenantID, userID)
+	if err != nil {
+		if errors.Is(err, domain.ErrKeyAlreadyRevoked) {
+			response.Conflict(w, "key alredy revoked")
+			return
+		}
+		if errors.Is(err, domain.ErrKeyNotFound) {
+			response.NotFound(w, "key not found")
+			return
+		}
+		response.InternalServerError(w, "Failed to delete")
+		return
+	}
+
+	response.OK(w, "success", "api key deleted")
 }

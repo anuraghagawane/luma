@@ -2,9 +2,11 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/anuraghagawane/luma/internal/domain"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -45,5 +47,51 @@ func (r *APIKeyRepo) CreateAPIKeyAndEvent(ctx context.Context, apiKeyObj domain.
 		return fmt.Errorf("failed to commit transaction: %v", err)
 	}
 
+	return nil
+}
+
+func (r *APIKeyRepo) DeleteAPIKeyAndCreateEvent(ctx context.Context, keyID string, tenantID string, userID string) error {
+	db, err := r.client.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to create the transaction: %w", err)
+	}
+
+	defer db.Rollback(ctx)
+	query := "SELECT status FROM api_keys WHERE key_id = $1 AND tenant_id = $2"
+
+	var status string
+	err = db.QueryRow(ctx, query, keyID, tenantID).Scan(&status)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.ErrKeyNotFound
+		}
+		return fmt.Errorf("lookup key: %w", err)
+	}
+
+	if status != string(domain.APIKeyActive) {
+		return domain.ErrKeyAlreadyRevoked
+	}
+	query = "UPDATE api_keys SET status = 'REVOKED', version = version + 1, updated_by = $1, updated_at = NOW() where key_id = $2 and tenant_id = $3 RETURNING key_id, tenant_id, hash, status, version;"
+
+	var redisPayload domain.APIKeyRedisPayload
+	err = db.QueryRow(ctx, query, userID, keyID, tenantID).Scan(&redisPayload.KeyID, &redisPayload.TenantID, &redisPayload.Hash, &redisPayload.Status, &redisPayload.Version)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.ErrKeyNotFound
+		}
+		return fmt.Errorf("failed to delete key: %w", err)
+	}
+
+	query = "INSERT into outbox_events (aggregate_type, aggregate_id, aggregate_version, event_type, payload) values ($1, $2, $3, $4, $5);"
+
+	_, err = db.Exec(ctx, query, "API_KEY", redisPayload.KeyID, redisPayload.Version, "API_KEY_STATE_CHANGED", redisPayload)
+	if err != nil {
+		return fmt.Errorf("failed to create outbox event: %w", err)
+	}
+
+	err = db.Commit(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to commit transaction: %v", err)
+	}
 	return nil
 }

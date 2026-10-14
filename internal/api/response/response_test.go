@@ -149,6 +149,18 @@ func TestFailureCase(t *testing.T) {
 			fn:      GatewayTimeout,
 			status:  http.StatusGatewayTimeout,
 		},
+		{
+			name:    "NotFound",
+			message: "abc",
+			fn:      NotFound,
+			status:  http.StatusNotFound,
+		},
+		{
+			name:    "Conflict",
+			message: "abc",
+			fn:      Conflict,
+			status:  http.StatusConflict,
+		},
 	}
 
 	for _, test := range tests {

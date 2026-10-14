@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"errors"
 	"time"
 )
 
@@ -10,6 +11,11 @@ type APIKeyStatus string
 const (
 	APIKeyActive  APIKeyStatus = "ACTIVE"
 	APIKeyRevoked APIKeyStatus = "REVOKED"
+)
+
+var (
+	ErrKeyNotFound       = errors.New("key not found")
+	ErrKeyAlreadyRevoked = errors.New("key already revoked/deleted")
 )
 
 type APIKey struct {
@@ -36,6 +42,7 @@ type APIKeyRedisPayload struct {
 
 type APIKeyRepository interface {
 	CreateAPIKeyAndEvent(ctx context.Context, apiKeyObj APIKey) error
+	DeleteAPIKeyAndCreateEvent(ctx context.Context, keyID string, tenantID string, userID string) error
 }
 
 func GenerateKeyRedisPayload(apiKey APIKey) APIKeyRedisPayload {

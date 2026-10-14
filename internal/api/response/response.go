@@ -69,3 +69,17 @@ func GatewayTimeout(w http.ResponseWriter, message string) {
 		Message: message,
 	})
 }
+
+func NotFound(w http.ResponseWriter, message string) {
+	WriteResponse(w, http.StatusNotFound, JSONResponse{
+		Status:  "failure",
+		Message: message,
+	})
+}
+
+func Conflict(w http.ResponseWriter, message string) {
+	WriteResponse(w, http.StatusConflict, JSONResponse{
+		Status:  "failure",
+		Message: message,
+	})
+}
