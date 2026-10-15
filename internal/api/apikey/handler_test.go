@@ -1,6 +1,7 @@
 package apikey
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -17,6 +18,7 @@ type apiKeyRepo struct {
 	called   bool
 	err      error
 	tenantID string
+	apiKey   domain.APIKey
 	keys     []domain.APIKey
 }
 
@@ -27,7 +29,9 @@ func (r *apiKeyRepo) AllAPIKey(ctx context.Context, tenantID string) ([]domain.A
 }
 
 func (r *apiKeyRepo) CreateAPIKeyAndEvent(ctx context.Context, apiKeyObj domain.APIKey) error {
-	return nil
+	r.called = true
+	r.apiKey = apiKeyObj
+	return r.err
 }
 
 func (r *apiKeyRepo) DeleteAPIKeyAndCreateEvent(ctx context.Context, keyID string, tenantID string, userID string) error {
@@ -171,6 +175,202 @@ func TestHandleAPIKeyGet(t *testing.T) {
 
 				if len(keys) > 0 && keys[0].Name != test.keys[0].Name {
 					t.Fatalf("key name = %s, want %s", keys[0].Name, test.keys[0].Name)
+				}
+			}
+		})
+	}
+}
+
+type KeyCreateRequest struct {
+	Name string `json:"name,omitempty"`
+}
+
+type APIKeyPostResponse struct {
+	Status string `json:"status"`
+	Data   struct {
+		Name   string `json:"name"`
+		APIKey string `json:"api_key"`
+	} `json:"data"`
+}
+
+func TestHandleAPIKeyPost(t *testing.T) {
+	tests := []struct {
+		name        string
+		tenantID    string
+		userID      string
+		status      int
+		invalidJSON bool
+		repoCalled  bool
+		err         error
+		reqBody     KeyCreateRequest
+	}{
+		{
+			name:       "success",
+			tenantID:   uuid.NewString(),
+			userID:     uuid.NewString(),
+			status:     http.StatusCreated,
+			repoCalled: true,
+			err:        nil,
+			reqBody:    KeyCreateRequest{Name: "prodkey"},
+		},
+		{
+			name:       "missing tenant context",
+			tenantID:   "",
+			userID:     uuid.NewString(),
+			status:     http.StatusUnauthorized,
+			repoCalled: false,
+			err:        nil,
+			reqBody:    KeyCreateRequest{Name: "prodkey"},
+		},
+		{
+			name:       "missing user context",
+			tenantID:   uuid.NewString(),
+			userID:     "",
+			status:     http.StatusUnauthorized,
+			repoCalled: false,
+			err:        nil,
+			reqBody:    KeyCreateRequest{Name: "prodkey"},
+		},
+		{
+			name:       "invalid request body",
+			tenantID:   uuid.NewString(),
+			userID:     uuid.NewString(),
+			status:     http.StatusBadRequest,
+			repoCalled: false,
+			err:        nil,
+			reqBody:    KeyCreateRequest{Name: ""},
+		},
+		{
+			name:       "invalid key name",
+			tenantID:   uuid.NewString(),
+			userID:     uuid.NewString(),
+			status:     http.StatusBadRequest,
+			repoCalled: false,
+			err:        nil,
+			reqBody:    KeyCreateRequest{Name: "hflkashflahl;fhja;lkfja;lsjfa;ljf;alsjfoyhroiuyriouqywrqywprqywporyqwporyqwpoyrqpowyrpoqwyrpoqwyrpoqwyfophsdflkjahslkfjh"},
+		},
+		{
+			name:       "repo error",
+			tenantID:   uuid.NewString(),
+			userID:     uuid.NewString(),
+			status:     http.StatusInternalServerError,
+			repoCalled: true,
+			err:        errors.New("repo error"),
+			reqBody:    KeyCreateRequest{Name: "prodkey"},
+		},
+		{
+			name:        "invalid json",
+			tenantID:    uuid.NewString(),
+			userID:      uuid.NewString(),
+			status:      http.StatusBadRequest,
+			repoCalled:  false,
+			invalidJSON: true,
+			err:         nil,
+			reqBody:     KeyCreateRequest{},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			contextKeyTenantID := auth.ContextKey("tenantid")
+			contextKeyUserID := auth.ContextKey("id")
+			reqData, err := json.Marshal(test.reqBody)
+			if err != nil {
+				t.Fatalf("Error while marshalling test data: %v", err)
+			}
+			body := bytes.NewBuffer(reqData)
+			if test.invalidJSON {
+				body = bytes.NewBufferString("{fadf")
+			}
+			req := httptest.NewRequest(http.MethodPost, "/v1/api-key", body)
+
+			if test.tenantID != "" {
+				ctx := context.WithValue(req.Context(), contextKeyTenantID, test.tenantID)
+				req = req.WithContext(ctx)
+			}
+			if test.userID != "" {
+				ctx := context.WithValue(req.Context(), contextKeyUserID, test.userID)
+				req = req.WithContext(ctx)
+			}
+
+			res := httptest.NewRecorder()
+
+			repo := apiKeyRepo{
+				err: test.err,
+			}
+			handler := NewAPIKeyHandler(&repo)
+
+			handler.HandleAPIKeyPost(res, req)
+			if res.Code != test.status {
+				t.Fatalf("status: %v, want %v", res.Code, test.status)
+			}
+
+			if repo.called != test.repoCalled {
+				t.Fatalf("repoCalled: %v, want %v", repo.called, test.repoCalled)
+			}
+
+			if repo.err != nil && res.Code != http.StatusInternalServerError {
+				t.Fatalf("repo error status: %v, want %v", res.Code, http.StatusInternalServerError)
+			}
+
+			if test.repoCalled {
+				if repo.apiKey.Name != test.reqBody.Name {
+					t.Fatalf("Name: %v, want %v", repo.apiKey.Name, test.reqBody.Name)
+				}
+
+				if repo.apiKey.TenantID != test.tenantID {
+					t.Fatalf("TenantID: %v, want %v", repo.apiKey.TenantID, test.tenantID)
+				}
+
+				if repo.apiKey.CreatedBy != test.userID {
+					t.Fatalf("CreatedBy: %v, want %v", repo.apiKey.CreatedBy, test.userID)
+				}
+
+				if repo.apiKey.UpdatedBy != test.userID {
+					t.Fatalf("UpdatedBy: %v, want %v", repo.apiKey.UpdatedBy, test.userID)
+				}
+
+			}
+
+			if test.status == http.StatusInternalServerError {
+				var resBody APIKeyPostResponse
+
+				err := json.Unmarshal(res.Body.Bytes(), &resBody)
+				if err != nil {
+					t.Fatalf("failed to unmarshal the response")
+				}
+
+				if resBody.Status != "failure" {
+					t.Fatalf(`Status: %v, want "failure"`, resBody.Status)
+				}
+			}
+
+			if test.status == http.StatusCreated {
+				var resBody APIKeyPostResponse
+
+				err := json.Unmarshal(res.Body.Bytes(), &resBody)
+				if err != nil {
+					t.Fatalf("failed to unmarshal the response")
+				}
+
+				if resBody.Status != "success" {
+					t.Fatalf(`Status: %v, want "success"`, resBody.Status)
+				}
+
+				if resBody.Data.Name != test.reqBody.Name {
+					t.Fatalf("Name: %v, want %v", resBody.Data.Name, test.reqBody.Name)
+				}
+
+				if resBody.Data.APIKey == "" {
+					t.Fatalf("API key not returned")
+				}
+
+				if repo.apiKey.Hash == "" {
+					t.Fatalf("Hash is empty")
+				}
+
+				if resBody.Data.APIKey != repo.apiKey.Key {
+					t.Fatalf("response apikey: %v, repo apikey: %v", resBody.Data.APIKey, repo.apiKey.Key)
 				}
 			}
 		})
