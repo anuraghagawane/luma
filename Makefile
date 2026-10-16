@@ -1,6 +1,6 @@
 .PHONY: help
 .PHONY: up down restart ps stop hard-restart
-.PHONY: collector worker query
+.PHONY: collector log-indexer query outbox-worker
 .PHONY: test fmt
 .PHONY: migrate
 
@@ -54,11 +54,14 @@ ps:
 collector:
 	go run ./cmd/collector/main.go
 
-worker:
-	go run ./cmd/worker/main.go
+log-indexer:
+	go run ./cmd/log-indexer/main.go
 
 query:
 	go run ./cmd/query/main.go
+
+outbox-worker:
+	go run ./cmd/outbox-worker/main.go
 
 #Code Quality
 test:
