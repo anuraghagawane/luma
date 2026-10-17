@@ -17,5 +17,5 @@ Ingestion Authentication
 [X] Schema for api_keys and outbox_events table
 [X] Apis for api_key operations with db persistance in transactional manner
 [X] Redis setup api_keys
-[ ] Worker to sync the redis with db state, taking into consideration event reprocessing, failure and in order updates
+[X] Worker to sync the redis with db state, taking into consideration event reprocessing, failure and in order updates
 [ ] Validation logic on ingestion layer with in memory map with LRU and negative caching
