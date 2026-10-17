@@ -53,21 +53,3 @@ func generateHash(key string) string {
 
 	return hex.EncodeToString(hashSum)
 }
-
-type APIKeyRedisObj struct {
-	KeyID    string              `json:"key_id"`
-	Name     string              `json:"name"`
-	TenantID string              `json:"tenant_id"`
-	Status   domain.APIKeyStatus `json:"status"`
-	Version  int                 `json:"version"`
-}
-
-func GenerateRedisObj(keyObj domain.APIKey) APIKeyRedisObj {
-	return APIKeyRedisObj{
-		KeyID:    keyObj.KeyID,
-		Name:     keyObj.Name,
-		TenantID: keyObj.TenantID,
-		Status:   keyObj.Status,
-		Version:  keyObj.Version,
-	}
-}

@@ -17,6 +17,8 @@ type Config struct {
 	PostgresDBUrl string
 	JwtSecret     string
 	TokenLifetime int
+	RedisHost     string
+	RedisPassword string
 }
 
 func LoadEnv() (*Config, error) {
@@ -37,5 +39,7 @@ func LoadEnv() (*Config, error) {
 		PostgresDBUrl: os.Getenv("POSTGRES_DB_URL"),
 		JwtSecret:     os.Getenv("JWT_SECRET"),
 		TokenLifetime: tokenLifeTime,
+		RedisHost:     os.Getenv("REDIS_HOST"),
+		RedisPassword: os.Getenv("REDIS_PASSWORD"),
 	}, nil
 }
