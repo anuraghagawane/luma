@@ -33,11 +33,11 @@ type APIKey struct {
 }
 
 type APIKeyRedisPayload struct {
-	KeyID    string       `json:"key_id"`
-	TenantID string       `json:"tenant_id"`
-	Hash     string       `json:"hash"`
-	Status   APIKeyStatus `json:"status"`
-	Version  int          `json:"version"`
+	KeyID    string       `json:"key_id" redis:"key_id"`
+	TenantID string       `json:"tenant_id" redis:"tenant_id"`
+	Hash     string       `json:"hash" redis:"hash"`
+	Status   APIKeyStatus `json:"status" redis:"status"`
+	Version  int          `json:"version" redis:"version"`
 }
 
 type APIKeyRepository interface {

@@ -10,6 +10,7 @@ import (
 	"github.com/anuraghagawane/luma/internal/api/auth"
 	"github.com/anuraghagawane/luma/internal/api/response"
 	"github.com/anuraghagawane/luma/internal/domain"
+	"github.com/anuraghagawane/luma/internal/security/apikey"
 	"github.com/google/uuid"
 )
 
@@ -72,7 +73,7 @@ func (h *APIKeyHander) HandleAPIKeyPost(w http.ResponseWriter, r *http.Request) 
 		response.BadRequest(w, err.Error())
 		return
 	}
-	apiKeyObj, err := generateKeyObj(body.Name, tenantID, userID)
+	apiKeyObj, err := apikey.GenerateAPIKey(body.Name, tenantID, userID)
 	if err != nil {
 		response.InternalServerError(w, "failed to create key")
 		return

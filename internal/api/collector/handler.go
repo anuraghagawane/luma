@@ -1,4 +1,4 @@
-// Package api defines the handler for all apis
+// Package collector defines the handler for all apis
 package collector
 
 import (
@@ -32,17 +32,30 @@ func (h *LogHandler) HandleLog(w http.ResponseWriter, r *http.Request) {
 
 		err = json.Unmarshal(data, &log)
 		if err != nil {
-			response.BadRequest(w, "Invalid input")
+			response.BadRequest(w, "Invalid Input")
 			return
 		}
 
-		err = h.producer.Publish(r.Context(), "log", []byte(log.EventID), data)
+		tenantID, ok := tenantIDFromContext(r.Context())
+		if !ok {
+			response.Unauthorized(w, "invalid key")
+			return
+		}
+
+		log.Tenant = tenantID
+
+		pubData, err := json.Marshal(log)
+		if err != nil {
+			response.InternalServerError(w, "internal error")
+			return
+		}
+
+		err = h.producer.Publish(r.Context(), "log", []byte(log.EventID), pubData)
 		if err != nil {
 			fmt.Printf("Error while publishing log: %v", err)
 			response.InternalServerError(w, "failed")
 			return
 		}
-		fmt.Printf("%+v\n", log)
 		response.OK(w, "", nil)
 	default:
 		response.MethodNotAllowed(w, "method not supported")
@@ -64,8 +77,13 @@ func (h *LogHandler) HandleBulkLog(w http.ResponseWriter, r *http.Request) {
 			response.BadRequest(w, "Invalid input")
 			return
 		}
-
+		tenantID, ok := tenantIDFromContext(r.Context())
+		if !ok {
+			response.Unauthorized(w, "invalid key")
+			return
+		}
 		for _, log := range logs {
+			log.Tenant = tenantID
 			data, _ := json.Marshal(log)
 			err = h.producer.Publish(r.Context(), "log", []byte(log.EventID), data)
 			if err != nil {

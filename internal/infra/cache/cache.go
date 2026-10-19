@@ -38,3 +38,17 @@ func (c *CacheClient) Apply(ctx context.Context, key string, payload domain.APIK
 		return 0, fmt.Errorf("redis script returned unexpected outcome %d", result)
 	}
 }
+
+func (c *CacheClient) GetAPIKey(ctx context.Context, key string) (*domain.APIKeyRedisPayload, error) {
+	var apiKeyPayload domain.APIKeyRedisPayload
+	err := c.rdb.HGetAll(ctx, key).Scan(&apiKeyPayload)
+	if err != nil {
+		return nil, fmt.Errorf("get API key from redis: %w", err)
+	}
+
+	if apiKeyPayload.KeyID == "" {
+		return nil, domain.ErrKeyNotFound
+	}
+
+	return &apiKeyPayload, nil
+}

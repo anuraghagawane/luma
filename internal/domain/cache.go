@@ -15,3 +15,7 @@ const (
 type CacheClient interface {
 	Apply(ctx context.Context, key string, payload APIKeyRedisPayload) (CacheApplyOutcome, error)
 }
+
+type CollectorCacheClient interface {
+	GetAPIKey(ctx context.Context, key string) (*APIKeyRedisPayload, error)
+}
