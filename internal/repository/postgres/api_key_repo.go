@@ -121,3 +121,18 @@ func (r *APIKeyRepo) DeleteAPIKeyAndCreateEvent(ctx context.Context, keyID strin
 	}
 	return nil
 }
+
+func (r *APIKeyRepo) GetAPIKey(ctx context.Context, key string) (*domain.APIKeyRedisPayload, error) {
+	query := "SELECT key_id, tenant_id, hash, status, version FROM api_keys WHERE key_id = $1"
+
+	var apiKeyPayload domain.APIKeyRedisPayload
+	err := r.client.QueryRow(ctx, query, key).Scan(&apiKeyPayload.KeyID, &apiKeyPayload.TenantID, &apiKeyPayload.Hash, &apiKeyPayload.Status, &apiKeyPayload.Version)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, domain.ErrKeyNotFound
+		}
+		return nil, fmt.Errorf("getAPIKey: %w", err)
+	}
+
+	return &apiKeyPayload, nil
+}

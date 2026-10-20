@@ -3,7 +3,9 @@ package collector
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/anuraghagawane/luma/internal/api/response"
 	"github.com/anuraghagawane/luma/internal/domain"
@@ -11,11 +13,12 @@ import (
 )
 
 type APIKeyAuthenticator struct {
-	cacheClient domain.CollectorCacheClient
+	cacheClient domain.CacheClient
+	apiKeyRepo  domain.CollectorAPIKeyRepository
 }
 
-func NewAPIKeyAuthenticator(cacheClient domain.CollectorCacheClient) *APIKeyAuthenticator {
-	return &APIKeyAuthenticator{cacheClient: cacheClient}
+func NewAPIKeyAuthenticator(cacheClient domain.CacheClient, apiKeyRepo domain.CollectorAPIKeyRepository) *APIKeyAuthenticator {
+	return &APIKeyAuthenticator{cacheClient: cacheClient, apiKeyRepo: apiKeyRepo}
 }
 
 type contextKey string
@@ -43,12 +46,8 @@ func APIKeyMiddleware(m *APIKeyAuthenticator) func(next http.Handler) http.Handl
 				return
 			}
 
-			apiKeyCachePayload, err := m.cacheClient.GetAPIKey(r.Context(), "api_key:"+keyObj.ID)
+			apiKeyCachePayload, err := apiKeyPayloadFromKeyID(r.Context(), m, keyObj.ID)
 			if err != nil {
-				if errors.Is(err, domain.ErrKeyNotFound) {
-					response.Unauthorized(w, "invalid api key")
-					return
-				}
 				response.InternalServerError(w, "internal error")
 				return
 			}
@@ -77,4 +76,31 @@ func apiKeyFromRequest(r *http.Request) (string, error) {
 	}
 
 	return key, nil
+}
+
+func apiKeyPayloadFromKeyID(ctx context.Context, m *APIKeyAuthenticator, keyID string) (*domain.APIKeyRedisPayload, error) {
+	cacheKey := "api_key:" + keyID
+	apiKeyCachePayload, err := m.cacheClient.GetAPIKey(ctx, cacheKey)
+	if err != nil {
+		if errors.Is(err, domain.ErrKeyNotFound) {
+			apiKeyCachePayload, err = m.apiKeyRepo.GetAPIKey(ctx, keyID)
+			if err != nil {
+				if errors.Is(err, domain.ErrKeyNotFound) {
+					// ignoring the error here as the key is present in db but caching failed which will be automatically cached on future request
+					apiKeyCachePayload = &domain.APIKeyRedisPayload{KeyID: keyID, Status: domain.APIKeyInvalid}
+					_, _ = m.cacheClient.Apply(ctx, cacheKey, *apiKeyCachePayload, 30*time.Second)
+					return apiKeyCachePayload, nil
+				}
+
+				return nil, fmt.Errorf("apiKeyPayloadFromKeyID: %w", err)
+			}
+
+			// cache the key
+			// ignoring the error here as the key is present in db but caching failed which will be automatically cached on future request
+			_, _ = m.cacheClient.Apply(ctx, cacheKey, *apiKeyCachePayload, 0)
+			return apiKeyCachePayload, nil
+		}
+		return nil, fmt.Errorf("apiKeyPayloadFromKeyID: %w", err)
+	}
+	return apiKeyCachePayload, nil
 }

@@ -52,7 +52,7 @@ func (w *worker) processBatch(ctx context.Context) error {
 		wg.Add(1)
 		go func(event domain.OutBoxEvents) {
 			defer wg.Done()
-			result, err := w.cache.Apply(ctx, "api_key:"+event.AggregateID, event.Payload)
+			result, err := w.cache.Apply(ctx, "api_key:"+event.AggregateID, event.Payload, 0)
 			if err != nil {
 				if event.Attempts >= w.retryPolicy.MaxAttempts {
 					repoerr := w.outboxRepo.MarkDead(ctx, event.ID, err, event.ClaimToken)

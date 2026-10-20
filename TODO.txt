@@ -19,6 +19,6 @@ Ingestion Authentication
 [X] Redis setup api_keys
 [X] Worker to sync the redis with db state, taking into consideration event reprocessing, failure and in order updates
 [X] Ingestion API-key middleware for log endpoints: validate key hash/status and derive tenant ID from Redis.
-[ ] Fall back to PostgreSQL on Redis cache miss; validate the key and warm Redis on success.
+[X] Fall back to PostgreSQL on Redis cache miss; validate the key and warm Redis on success.
 [ ] Add bounded in-memory LRU/TTL caching, including short-lived negative caching for unknown key IDs only.
 [ ] Add ingestion-auth tests for cache hits/misses, DB fallback, invalid/revoked keys, backend errors, and tenant isolation.

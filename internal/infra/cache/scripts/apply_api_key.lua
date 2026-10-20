@@ -10,6 +10,13 @@ if versionRaw and not version then
 	return redis.error_reply("invalid version")
 end
 
+local ttlRaw = ARGV[6] -- ttl in seconds
+local ttl = tonumber(ttlRaw)
+
+if ttlRaw and not ttl then
+	return redis.error_reply("invalid ttl")
+end
+
 local currentVersionRaw = redis.call("HGET", api_key, "version")
 local currentVersion = tonumber(currentVersionRaw)
 if currentVersionRaw and not currentVersion then
@@ -39,4 +46,8 @@ redis.call(
 	"version",
 	version
 )
+
+if ttl > 0 then
+	redis.call("EXPIRE", api_key, ttl)
+end
 return 1

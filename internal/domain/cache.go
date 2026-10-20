@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"time"
 )
 
 type CacheApplyOutcome int
@@ -13,9 +14,6 @@ const (
 )
 
 type CacheClient interface {
-	Apply(ctx context.Context, key string, payload APIKeyRedisPayload) (CacheApplyOutcome, error)
-}
-
-type CollectorCacheClient interface {
+	Apply(ctx context.Context, key string, payload APIKeyRedisPayload, ttl time.Duration) (CacheApplyOutcome, error)
 	GetAPIKey(ctx context.Context, key string) (*APIKeyRedisPayload, error)
 }

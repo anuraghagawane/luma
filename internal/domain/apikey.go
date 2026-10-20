@@ -11,6 +11,7 @@ type APIKeyStatus string
 const (
 	APIKeyActive  APIKeyStatus = "ACTIVE"
 	APIKeyRevoked APIKeyStatus = "REVOKED"
+	APIKeyInvalid APIKeyStatus = "INVALID"
 )
 
 var (
@@ -44,6 +45,10 @@ type APIKeyRepository interface {
 	AllAPIKey(ctx context.Context, tenantID string) ([]APIKey, error)
 	CreateAPIKeyAndEvent(ctx context.Context, apiKeyObj APIKey) error
 	DeleteAPIKeyAndCreateEvent(ctx context.Context, keyID string, tenantID string, userID string) error
+}
+
+type CollectorAPIKeyRepository interface {
+	GetAPIKey(ctx context.Context, key string) (*APIKeyRedisPayload, error)
 }
 
 func GenerateKeyRedisPayload(apiKey APIKey) APIKeyRedisPayload {

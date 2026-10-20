@@ -5,6 +5,7 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	"time"
 
 	"github.com/anuraghagawane/luma/internal/domain"
 	"github.com/redis/go-redis/v9"
@@ -23,8 +24,8 @@ var applyAPIKeyLua string
 
 var applyAPIKeyScript = redis.NewScript(applyAPIKeyLua)
 
-func (c *CacheClient) Apply(ctx context.Context, key string, payload domain.APIKeyRedisPayload) (domain.CacheApplyOutcome, error) {
-	result, err := applyAPIKeyScript.Run(ctx, c.rdb, []string{key}, payload.KeyID, payload.TenantID, payload.Hash, string(payload.Status), payload.Version).Int()
+func (c *CacheClient) Apply(ctx context.Context, key string, payload domain.APIKeyRedisPayload, ttl time.Duration) (domain.CacheApplyOutcome, error) {
+	result, err := applyAPIKeyScript.Run(ctx, c.rdb, []string{key}, payload.KeyID, payload.TenantID, payload.Hash, string(payload.Status), payload.Version, ttl.Seconds()).Int()
 	if err != nil {
 		return 0, fmt.Errorf("failed to run redis script: %w", err)
 	}
