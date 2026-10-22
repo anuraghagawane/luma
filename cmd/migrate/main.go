@@ -24,7 +24,9 @@ func main() {
 	defer dbpool.Close()
 
 	migrator := postgres.NewMigrator(dbpool, "./migrations/", context.Background())
-	migrator.RunMigration()
-
-	migrator.Close()
+	defer migrator.Close()
+	err = migrator.RunMigration()
+	if err != nil {
+		log.Fatal("Failed to run migration: ", err)
+	}
 }

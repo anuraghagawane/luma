@@ -25,30 +25,30 @@ func (m *Migrator) Close() {
 	m.client.Close()
 }
 
-func (m *Migrator) RunMigration() {
+func (m *Migrator) RunMigration() error {
 	fileNames, err := loadMigrationFileName(m.migrationDir)
 	if err != nil {
-		return
+		return err
 	}
 
 	migrationTableFile := fileNames[0]
 	err = m.checkAndCreateMigrationTable(migrationTableFile)
 	if err != nil {
 		fmt.Printf("failed to create migration table: %v", err)
-		return
+		return err
 	}
 
 	applied, err := m.versionMigrated()
 	if err != nil {
 		fmt.Printf("failed to read migrated version: %v", err)
-		return
+		return err
 	}
 
 	for _, fileName := range fileNames[1:] {
 		ver, err := migrationVersionFromFileName(fileName)
 		if err != nil {
 			fmt.Printf("Failed to read migration version: %v", err)
-			return
+			return err
 		}
 
 		if applied[ver] {
@@ -59,11 +59,12 @@ func (m *Migrator) RunMigration() {
 		err = m.applyMigration(fileName, ver)
 		if err != nil {
 			fmt.Printf("failed to apply migration: %v\n", err)
-			return
+			return err
 		}
 	}
 
 	fmt.Println("Migration done!")
+	return nil
 }
 
 func loadMigrationFileName(migrationDir string) ([]string, error) {
