@@ -207,3 +207,12 @@ func decodeCursor(s string, c *cursorData) error {
 
 	return json.Unmarshal(b, c)
 }
+
+func (r *LogRepo) DeleteIndex(ctx context.Context, index string) error {
+	_, err := r.client.Indices.Delete(index).Do(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to delete index: %w", err)
+	}
+
+	return nil
+}
