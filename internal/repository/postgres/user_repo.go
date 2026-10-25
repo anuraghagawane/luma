@@ -34,7 +34,8 @@ func (r *UserRepo) CreateTenantAndUser(ctx context.Context, user *domain.User, t
 		return fmt.Errorf("failed to create tenant: %w", err)
 	}
 
-	res, err := tx.Exec(ctx, "Insert into users (tenant_id, email, password_hash, role, status) values ($1, $2, $3, $4, $5);", tenantID, user.Email, user.PasswordHash, user.Role, user.Status)
+	var userID string
+	err = tx.QueryRow(ctx, "Insert into users (tenant_id, email, password_hash, role, status) values ($1, $2, $3, $4, $5) returning id;", tenantID, user.Email, user.PasswordHash, user.Role, user.Status).Scan(&userID)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
@@ -43,16 +44,13 @@ func (r *UserRepo) CreateTenantAndUser(ctx context.Context, user *domain.User, t
 		return fmt.Errorf("failed to create user: %w", err)
 	}
 
-	if res.RowsAffected() != 1 {
-		return fmt.Errorf("failed to create row, RowsAffected %d", res.RowsAffected())
-	}
-
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("failed ot commit transaction: %w", err)
 	}
 
 	tenant.ID = tenantID
 	user.TenantID = tenantID
+	user.ID = userID
 
 	return nil
 }

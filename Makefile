@@ -3,6 +3,7 @@
 .PHONY: collector log-indexer query outbox-worker
 .PHONY: test fmt
 .PHONY: migrate
+.PHONY: integration-postgres
 
 help:
 	@echo "Available commands:"
@@ -73,3 +74,10 @@ fmt:
 #Migrations
 migrate:
 	go run ./cmd/migrate/main.go
+
+#Integration test
+integration-postgres:
+	docker compose up -d postgresdb
+	-docker compose exec postgresdb psql -U myuser -d postgres -c 'CREATE DATABASE luma_test;'
+	LUMA_TEST_DATABASE_URL="postgres://myuser:mysecretpassword@localhost:5432/luma_test" go test -tags=integration ./internal/repository/postgres
+
