@@ -18,6 +18,7 @@ type DBRepo struct {
 	pool *pgxpool.Pool
 	*postgres.APIKeyRepo
 	*postgres.UserRepo
+	*postgres.OutboxEventRepo
 }
 
 func setupTestDB(t *testing.T) *DBRepo {
@@ -74,5 +75,5 @@ func setupTestDB(t *testing.T) *DBRepo {
 		t.Fatalf("RunMigration(): %v", err)
 	}
 
-	return &DBRepo{pool: testPool, APIKeyRepo: postgres.NewAPIKeyRepo(testPool), UserRepo: postgres.NewUserRepo(testPool)}
+	return &DBRepo{pool: testPool, APIKeyRepo: postgres.NewAPIKeyRepo(testPool), UserRepo: postgres.NewUserRepo(testPool), OutboxEventRepo: postgres.NewOutboxEventRepo(testPool)}
 }
